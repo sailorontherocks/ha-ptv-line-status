@@ -1,10 +1,16 @@
 # Transport Victoria service status for Home Assistant
 
-Version 0.2 creates one Home Assistant service-status sensor for each configured
-Metro train station, line, and direction. Multiple entries can be added, such as
+Version 0.2 creates two Home Assistant entities for each configured Metro train
+station, line, and direction. Multiple entries can be added, such as
 **North Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
-Each sensor state is one of `normal`, `delayed`, `disrupted`, `suspended`, or
-`unknown`.
+
+- **Service status** is an enum sensor whose state is `normal`, `delayed`,
+  `disrupted`, `suspended`, or `unknown`.
+- **Service issue** is a problem binary sensor. It is off for `normal` and on
+  for `delayed`, `disrupted`, `suspended`, or `unknown`.
+
+Both entities use the same coordinator data and therefore share one realtime
+feed request and polling schedule per configured service.
 
 The integration polls Transport Victoria's Metro GTFS-Realtime Service Alerts
 feed and uses explicit GTFS alert effects to classify service. Informational

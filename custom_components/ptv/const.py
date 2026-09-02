@@ -4,7 +4,7 @@ from datetime import timedelta
 from typing import Final
 
 DOMAIN: Final = "ptv"
-PLATFORMS: Final = ["sensor"]
+PLATFORMS: Final = ["binary_sensor", "sensor"]
 
 CONF_API_KEY: Final = "api_key"
 CONF_STATION_NAME: Final = "station_name"
