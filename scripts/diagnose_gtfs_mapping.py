@@ -11,7 +11,6 @@ from __future__ import annotations
 import argparse
 import csv
 import io
-import re
 import sys
 import tempfile
 import urllib.request
@@ -21,19 +20,16 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import IO, Iterator
 
+# Direct execution puts scripts/ rather than the repository root on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from custom_components.ptv.static_gtfs import (
+    METRO_ARCHIVE_PATH,
+    REQUIRED_FILES,
+    normalized_name,
+)
 
 DEFAULT_GTFS_URL = "https://data.ptv.vic.gov.au/downloads/gtfs.zip"
-METRO_ARCHIVE_PATH = "2/google_transit.zip"
-REQUIRED_FILES = ("stops.txt", "routes.txt", "trips.txt", "stop_times.txt")
-
-
-def normalized_name(value: str) -> str:
-    """Normalize rider-facing names for exact, suffix-insensitive matching."""
-    words = re.sub(r"[^a-z0-9]+", " ", value.casefold()).split()
-    ignored_suffixes = {"line", "railway", "station"}
-    while words and words[-1] in ignored_suffixes:
-        words.pop()
-    return " ".join(words)
 
 
 class GtfsSource:

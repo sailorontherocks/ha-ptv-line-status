@@ -1,8 +1,10 @@
 # Transport Victoria service status for Home Assistant
 
-This first vertical slice creates one Home Assistant sensor for **North
-Williamstown → City** on the Williamstown Line. Its state is one of `normal`,
-`delayed`, `disrupted`, `suspended`, or `unknown`.
+Version 0.2 creates one Home Assistant service-status sensor for each configured
+Metro train station, line, and direction. Multiple entries can be added, such as
+**North Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
+Each sensor state is one of `normal`, `delayed`, `disrupted`, `suspended`, or
+`unknown`.
 
 The integration polls Transport Victoria's Metro GTFS-Realtime Service Alerts
 feed and uses explicit GTFS alert effects to classify service. Informational
@@ -23,10 +25,19 @@ The runtime dependency `gtfs-realtime-bindings==2.2.0` is declared in
 ## Configuration
 
 In Home Assistant, go to **Settings → Devices & services → Add integration**,
-select **Transport Victoria**, and enter a Transport Victoria Open Data API key.
-The key is validated against the Service Alerts endpoint and stored only in the
-config entry. It is not logged or exposed in sensor state attributes. YAML
-configuration is not supported.
+select **Transport Victoria**, enter a Transport Victoria Open Data API key,
+then choose a Metro station and direction. A line-selection step appears when a
+station is served by multiple lines. Direction labels come from published GTFS
+trip destinations rather than the numeric GTFS `direction_id`.
+
+The API key is validated against the Service Alerts endpoint. The static Metro
+GTFS Schedule is downloaded during configuration and cached in memory for reuse
+by further config flows. The large schedule and its raw tables are not stored in
+the config entry. Only resolved IDs and human-readable names are saved. The key
+is not logged or exposed in sensor attributes. YAML is not supported.
+
+Existing v0.1 North Williamstown entries are migrated automatically to the new
+mapping fields while retaining their API key, entry identity, and unique ID.
 
 ## Polling and updates
 
@@ -42,10 +53,12 @@ and retain Home Assistant's normal retry behavior.
 
 ## Known limitations
 
-- Only North Williamstown (`vic:rail:NWN`) towards the City (`direction_id: 1`)
-  on the Williamstown Line (`aus:vic:vic-02-WIL:`) is supported.
-- There is no dynamic station or direction selection, departure-time data,
-  nearby-stop support, dashboard, automation, or HACS packaging.
+- Metro trains only; buses, trams, regional trains, and replacement buses are
+  excluded.
+- Static GTFS is cached only for the current Home Assistant process. The first
+  new configuration after a restart downloads the current weekly schedule.
+- There is no departure-time data, nearby-stop support, dashboard, automation,
+  or HACS packaging.
 - Classification is deliberately conservative and based on explicit GTFS-RT
   effects, not keywords in alert titles or descriptions.
 - Operational alert attributes contain compact summaries rather than complete

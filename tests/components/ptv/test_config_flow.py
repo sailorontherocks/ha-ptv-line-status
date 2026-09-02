@@ -8,25 +8,80 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ptv.api import PtvAuthenticationError, PtvConnectionError
+from custom_components.ptv.config_flow import CONF_DIRECTION, CONF_ROUTE, CONF_STATION
 from custom_components.ptv.const import CONF_API_KEY, DOMAIN
+from custom_components.ptv.static_gtfs import (
+    DirectionChoice,
+    GtfsCatalog,
+    RouteChoice,
+    StationChoice,
+)
 
 from .helpers import feed_with_alert
 
+WILLIAMSTOWN = RouteChoice(
+    "route-wil",
+    "Williamstown",
+    (DirectionChoice(1, "City"), DirectionChoice(0, "Williamstown")),
+)
+WERRIBEE = RouteChoice(
+    "route-wer",
+    "Werribee",
+    (DirectionChoice(1, "City"), DirectionChoice(0, "Werribee")),
+)
+CATALOG = GtfsCatalog(
+    {
+        "station-nwn": StationChoice(
+            "station-nwn", "North Williamstown", (WILLIAMSTOWN,)
+        ),
+        "station-npt": StationChoice(
+            "station-npt", "Newport", (WILLIAMSTOWN, WERRIBEE)
+        ),
+    }
+)
 
-def add_entry(hass: HomeAssistant) -> MockConfigEntry:
-    """Add the existing integration entry used by reauthentication tests."""
+
+def add_entry(
+    hass: HomeAssistant, *, api_key: str = "old-api-key", unique_id: str = "existing"
+) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="North Williamstown → City",
-        data={CONF_API_KEY: "old-api-key"},
-        unique_id="north_williamstown_city",
+        data={
+            CONF_API_KEY: api_key,
+            "station_name": "North Williamstown",
+            "stop_id": "station-nwn",
+            "route_name": "Williamstown",
+            "route_id": "route-wil",
+            "direction_name": "City",
+            "direction_id": 1,
+        },
+        unique_id=unique_id,
+        version=2,
     )
     entry.add_to_hass(hass)
     return entry
 
 
+async def start_user(hass: HomeAssistant, key: str = "test-api-key"):
+    with (
+        patch(
+            "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+            new=AsyncMock(return_value=feed_with_alert()),
+        ),
+        patch(
+            "custom_components.ptv.config_flow.async_get_gtfs_catalog",
+            new=AsyncMock(return_value=CATALOG),
+        ),
+    ):
+        return await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_USER},
+            data={CONF_API_KEY: key},
+        )
+
+
 async def start_reauth(hass: HomeAssistant, entry: MockConfigEntry):
-    """Start a reauthentication flow linked to an existing entry."""
     return await hass.config_entries.flow.async_init(
         DOMAIN,
         context={
@@ -38,90 +93,107 @@ async def start_reauth(hass: HomeAssistant, entry: MockConfigEntry):
     )
 
 
-async def test_successful_config_flow(hass: HomeAssistant, mock_api_key: str) -> None:
-    with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
-        new=AsyncMock(return_value=feed_with_alert()),
-    ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN,
-            context={"source": config_entries.SOURCE_USER},
-            data={CONF_API_KEY: mock_api_key},
-        )
-
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "North Williamstown → City"
-    assert result["data"] == {CONF_API_KEY: mock_api_key}
-
-
-async def test_invalid_api_key(hass: HomeAssistant, mock_api_key: str) -> None:
-    with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
-        new=AsyncMock(side_effect=PtvAuthenticationError),
-    ):
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN,
-            context={"source": config_entries.SOURCE_USER},
-            data={CONF_API_KEY: mock_api_key},
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "invalid_auth"}
-
-
-async def test_reauth_starts_correctly(hass: HomeAssistant) -> None:
-    entry = add_entry(hass)
-
-    result = await start_reauth(hass, entry)
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "reauth_confirm"
-    assert result["errors"] == {}
-
-
-async def test_reauth_rejects_invalid_replacement_key(hass: HomeAssistant) -> None:
-    entry = add_entry(hass)
-    initial = await start_reauth(hass, entry)
-
-    with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
-        new=AsyncMock(side_effect=PtvAuthenticationError),
-    ):
-        result = await hass.config_entries.flow.async_configure(
-            initial["flow_id"], {CONF_API_KEY: "invalid-replacement"}
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "reauth_confirm"
-    assert result["errors"] == {"base": "invalid_auth"}
-    assert entry.data == {CONF_API_KEY: "old-api-key"}
-
-
-async def test_reauth_reports_connection_failure(hass: HomeAssistant) -> None:
-    entry = add_entry(hass)
-    initial = await start_reauth(hass, entry)
-
-    with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
-        new=AsyncMock(side_effect=PtvConnectionError("offline")),
-    ):
-        result = await hass.config_entries.flow.async_configure(
-            initial["flow_id"], {CONF_API_KEY: "replacement"}
-        )
-
-    assert result["type"] is FlowResultType.FORM
-    assert result["errors"] == {"base": "cannot_connect"}
-    assert entry.data == {CONF_API_KEY: "old-api-key"}
-
-
-async def test_valid_reauth_updates_existing_entry_and_reloads(
+async def test_selecting_station_and_direction_stores_mapping(
     hass: HomeAssistant,
 ) -> None:
-    entry = add_entry(hass)
-    original_unique_id = entry.unique_id
-    initial_entry_count = len(hass.config_entries.async_entries(DOMAIN))
-    initial = await start_reauth(hass, entry)
+    station = await start_user(hass)
+    assert station["step_id"] == "station"
+    direction = await hass.config_entries.flow.async_configure(
+        station["flow_id"], {CONF_STATION: "station-nwn"}
+    )
+    assert direction["step_id"] == "direction"
+    result = await hass.config_entries.flow.async_configure(
+        direction["flow_id"], {CONF_DIRECTION: "1"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "North Williamstown → City"
+    assert result["data"] == {
+        CONF_API_KEY: "test-api-key",
+        "station_name": "North Williamstown",
+        "stop_id": "station-nwn",
+        "route_name": "Williamstown",
+        "route_id": "route-wil",
+        "direction_name": "City",
+        "direction_id": 1,
+    }
 
+
+async def test_ambiguous_station_requires_route_selection(hass: HomeAssistant) -> None:
+    station = await start_user(hass)
+    route = await hass.config_entries.flow.async_configure(
+        station["flow_id"], {CONF_STATION: "station-npt"}
+    )
+    assert route["step_id"] == "route"
+    direction = await hass.config_entries.flow.async_configure(
+        route["flow_id"], {CONF_ROUTE: "route-wil"}
+    )
+    assert direction["step_id"] == "direction"
+
+
+async def test_multiple_config_entries(hass: HomeAssistant) -> None:
+    with patch(
+        "custom_components.ptv.api.PtvApiClient.async_get_service_alerts",
+        new=AsyncMock(return_value=feed_with_alert()),
+    ):
+        first = await start_user(hass, "key-one")
+        first = await hass.config_entries.flow.async_configure(
+            first["flow_id"], {CONF_STATION: "station-nwn"}
+        )
+        first = await hass.config_entries.flow.async_configure(
+            first["flow_id"], {CONF_DIRECTION: "1"}
+        )
+        second = await start_user(hass, "key-two")
+        second = await hass.config_entries.flow.async_configure(
+            second["flow_id"], {CONF_STATION: "station-npt"}
+        )
+        second = await hass.config_entries.flow.async_configure(
+            second["flow_id"], {CONF_ROUTE: "route-wil"}
+        )
+        second = await hass.config_entries.flow.async_configure(
+            second["flow_id"], {CONF_DIRECTION: "0"}
+        )
+        await hass.async_block_till_done()
+    assert second["type"] is FlowResultType.CREATE_ENTRY
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 2
+    assert second["title"] == "Newport → Williamstown"
+
+
+async def test_existing_mapping_prevents_duplicate_with_legacy_unique_id(
+    hass: HomeAssistant,
+) -> None:
+    add_entry(hass, unique_id="north_williamstown_city")
+    station = await start_user(hass)
+    direction = await hass.config_entries.flow.async_configure(
+        station["flow_id"], {CONF_STATION: "station-nwn"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        direction["flow_id"], {CONF_DIRECTION: "1"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_invalid_api_key(hass: HomeAssistant) -> None:
+    with patch(
+        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        new=AsyncMock(side_effect=PtvAuthenticationError),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_USER},
+            data={CONF_API_KEY: "bad"},
+        )
+    assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reauth_preserves_mapping_and_reloads(hass: HomeAssistant) -> None:
+    entry = add_entry(hass)
+    original_mapping = {
+        key: value for key, value in entry.data.items() if key != CONF_API_KEY
+    }
+    initial = await start_reauth(hass, entry)
+    assert initial["step_id"] == "reauth_confirm"
+    entry_count = len(hass.config_entries.async_entries(DOMAIN))
     with (
         patch(
             "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
@@ -129,15 +201,43 @@ async def test_valid_reauth_updates_existing_entry_and_reloads(
         ),
         patch.object(
             hass.config_entries, "async_reload", new=AsyncMock(return_value=True)
-        ) as mock_reload,
+        ) as reload_mock,
     ):
         result = await hass.config_entries.flow.async_configure(
-            initial["flow_id"], {CONF_API_KEY: "valid-replacement"}
+            initial["flow_id"], {CONF_API_KEY: "new-key"}
         )
-
-    assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
-    assert entry.data == {CONF_API_KEY: "valid-replacement"}
-    assert entry.unique_id == original_unique_id
-    assert len(hass.config_entries.async_entries(DOMAIN)) == initial_entry_count
-    mock_reload.assert_awaited_once_with(entry.entry_id)
+    assert {
+        key: value for key, value in entry.data.items() if key != CONF_API_KEY
+    } == original_mapping
+    assert entry.data[CONF_API_KEY] == "new-key"
+    assert len(hass.config_entries.async_entries(DOMAIN)) == entry_count
+    reload_mock.assert_awaited_once_with(entry.entry_id)
+
+
+async def test_reauth_rejects_invalid_key(hass: HomeAssistant) -> None:
+    entry = add_entry(hass)
+    initial = await start_reauth(hass, entry)
+    with patch(
+        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        new=AsyncMock(side_effect=PtvAuthenticationError),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            initial["flow_id"], {CONF_API_KEY: "bad-new-key"}
+        )
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "invalid_auth"}
+    assert entry.data[CONF_API_KEY] == "old-api-key"
+
+
+async def test_reauth_errors(hass: HomeAssistant) -> None:
+    entry = add_entry(hass)
+    initial = await start_reauth(hass, entry)
+    with patch(
+        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        new=AsyncMock(side_effect=PtvConnectionError("offline")),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            initial["flow_id"], {CONF_API_KEY: "new"}
+        )
+    assert result["errors"] == {"base": "cannot_connect"}

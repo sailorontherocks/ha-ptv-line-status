@@ -10,11 +10,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PtvConfigEntry
-from .const import (
-    DIRECTION_NAME,
-    ROUTE_NAME,
-    STATION_NAME,
-)
+from .const import CONF_DIRECTION_NAME, CONF_ROUTE_NAME, CONF_STATION_NAME
 from .coordinator import PtvDataUpdateCoordinator
 from .service_alerts import ServiceStatus
 
@@ -29,7 +25,7 @@ async def async_setup_entry(
 
 
 class PtvServiceStatusSensor(CoordinatorEntity[PtvDataUpdateCoordinator], SensorEntity):
-    """Service status for North Williamstown towards the City."""
+    """Service status for one configured station, route, and direction."""
 
     _attr_has_entity_name = True
     _attr_name = "Service status"
@@ -40,7 +36,18 @@ class PtvServiceStatusSensor(CoordinatorEntity[PtvDataUpdateCoordinator], Sensor
         self, coordinator: PtvDataUpdateCoordinator, entry: PtvConfigEntry
     ) -> None:
         super().__init__(coordinator)
-        self._attr_unique_id = f"{entry.entry_id}_north_williamstown_city_status"
+        self._station_name = entry.data[CONF_STATION_NAME]
+        self._route_name = entry.data[CONF_ROUTE_NAME]
+        self._direction_name = entry.data[CONF_DIRECTION_NAME]
+        suffix = (
+            "north_williamstown_city_status"
+            if entry.unique_id == "north_williamstown_city"
+            else "service_status"
+        )
+        self._attr_unique_id = f"{entry.entry_id}_{suffix}"
+        self._attr_name = (
+            f"{self._station_name} → {self._direction_name} Service status"
+        )
 
     @property
     def native_value(self) -> str:
@@ -52,9 +59,9 @@ class PtvServiceStatusSensor(CoordinatorEntity[PtvDataUpdateCoordinator], Sensor
         """Return compact operational context."""
         data = self.coordinator.data
         return {
-            "station": STATION_NAME,
-            "direction": DIRECTION_NAME,
-            "route": ROUTE_NAME,
+            "station": self._station_name,
+            "direction": self._direction_name,
+            "route": self._route_name,
             "matching_operational_alert_count": len(data.operational_alerts),
             "matching_alerts": [
                 {

@@ -11,7 +11,13 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import PtvApiClient, PtvApiError, PtvAuthenticationError
-from .const import DIRECTION_ID, DOMAIN, ROUTE_ID, STOP_ID, UPDATE_INTERVAL
+from .const import (
+    CONF_DIRECTION_ID,
+    CONF_ROUTE_ID,
+    CONF_STOP_ID,
+    DOMAIN,
+    UPDATE_INTERVAL,
+)
 from .service_alerts import ServiceAlertResult, evaluate_service_alerts
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,6 +40,9 @@ class PtvDataUpdateCoordinator(DataUpdateCoordinator[ServiceAlertResult]):
             always_update=False,
         )
         self._client = client
+        self._route_id = config_entry.data[CONF_ROUTE_ID]
+        self._stop_id = config_entry.data[CONF_STOP_ID]
+        self._direction_id = config_entry.data[CONF_DIRECTION_ID]
 
     async def _async_update_data(self) -> ServiceAlertResult:
         try:
@@ -50,7 +59,7 @@ class PtvDataUpdateCoordinator(DataUpdateCoordinator[ServiceAlertResult]):
         return evaluate_service_alerts(
             feed,
             int(datetime.now(UTC).timestamp()),
-            ROUTE_ID,
-            STOP_ID,
-            DIRECTION_ID,
+            self._route_id,
+            self._stop_id,
+            self._direction_id,
         )
