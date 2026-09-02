@@ -1,6 +1,6 @@
 {
-  "domain": "ptv",
-  "name": "Transport Victoria",
+  "domain": "ptv_line_status",
+  "name": "PTV Line Status",
   "codeowners": [],
   "config_flow": true,
   "integration_type": "service",

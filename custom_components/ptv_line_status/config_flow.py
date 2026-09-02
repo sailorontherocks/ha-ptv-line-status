@@ -1,4 +1,4 @@
-"""Config flow for Transport Victoria."""
+"""Config flow for PTV Line Status."""
 
 from __future__ import annotations
 

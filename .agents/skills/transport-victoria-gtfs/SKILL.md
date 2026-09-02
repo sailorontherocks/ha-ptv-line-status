@@ -37,7 +37,7 @@ to report, not a reason to guess.
 
 ## Repository diagnostic
 
-In the `ptv-ha` repository, use `scripts/diagnose_gtfs_mapping.py`. It accepts the
+In the `ha-ptv-line-status` repository, use `scripts/diagnose_gtfs_mapping.py`. It accepts the
 statewide ZIP, the nested Metro `google_transit.zip`, or an extracted Metro
 directory:
 

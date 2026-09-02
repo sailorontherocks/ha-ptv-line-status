@@ -5,15 +5,15 @@ from unittest.mock import AsyncMock
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ptv import async_migrate_entry
-from custom_components.ptv.const import (
+from custom_components.ptv_line_status import async_migrate_entry
+from custom_components.ptv_line_status.const import (
     CONF_API_KEY,
     CONF_ROUTE_ID,
     CONF_STOP_ID,
     DOMAIN,
 )
-from custom_components.ptv.coordinator import PtvDataUpdateCoordinator
-from custom_components.ptv.sensor import PtvServiceStatusSensor
+from custom_components.ptv_line_status.coordinator import PtvDataUpdateCoordinator
+from custom_components.ptv_line_status.sensor import PtvServiceStatusSensor
 
 
 async def test_migrate_v1_entry(hass: HomeAssistant) -> None:

@@ -3,8 +3,11 @@
 import pytest
 from google.transit import gtfs_realtime_pb2
 
-from custom_components.ptv.const import DIRECTION_ID, ROUTE_ID, STOP_ID
-from custom_components.ptv.service_alerts import ServiceStatus, evaluate_service_alerts
+from custom_components.ptv_line_status.const import DIRECTION_ID, ROUTE_ID, STOP_ID
+from custom_components.ptv_line_status.service_alerts import (
+    ServiceStatus,
+    evaluate_service_alerts,
+)
 
 from .helpers import feed_with_alert
 

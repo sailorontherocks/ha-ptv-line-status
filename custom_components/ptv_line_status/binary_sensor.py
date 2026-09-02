@@ -1,4 +1,4 @@
-"""Binary sensor platform for Transport Victoria."""
+"""Binary sensor platform for PTV Line Status."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Fixtures for Transport Victoria tests."""
+"""Fixtures for PTV Line Status tests."""
 
 from collections.abc import Generator
 

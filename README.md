@@ -1,4 +1,8 @@
-# Transport Victoria service status for Home Assistant
+# PTV Line Status for Home Assistant
+
+Project/repository: `ha-ptv-line-status`
+
+Home Assistant integration: **PTV Line Status** (`ptv_line_status`)
 
 Version 0.2 creates two Home Assistant entities for each configured Metro train
 station, line, and direction. Multiple entries can be added, such as
@@ -19,11 +23,11 @@ operation) are exposed only as a count and do not change the sensor state.
 
 ## Installation and development
 
-Copy `custom_components/ptv` into the `custom_components` directory of a Home
-Assistant configuration, then restart Home Assistant. For development, mount or
-copy this repository into a Home Assistant development environment and run the
-tests with `pytest` from the repository root. External API calls are mocked by
-the tests; no development API key is required.
+Copy `custom_components/ptv_line_status` into the `custom_components` directory
+of a Home Assistant configuration, then restart Home Assistant. For development,
+mount or copy this repository into a Home Assistant development environment and
+run the tests with `pytest` from the repository root. External API calls are
+mocked by the tests; no development API key is required.
 
 The runtime dependency `gtfs-realtime-bindings==2.2.0` is declared in
 `manifest.json` and Home Assistant installs it when loading the integration.
@@ -31,7 +35,7 @@ The runtime dependency `gtfs-realtime-bindings==2.2.0` is declared in
 ## Configuration
 
 In Home Assistant, go to **Settings → Devices & services → Add integration**,
-select **Transport Victoria**, enter a Transport Victoria Open Data API key,
+select **PTV Line Status**, enter a Transport Victoria Open Data API key,
 then choose a Metro station and direction. A line-selection step appears when a
 station is served by multiple lines. Direction labels come from published GTFS
 trip destinations rather than the numeric GTFS `direction_id`.
@@ -44,6 +48,20 @@ is not logged or exposed in sensor attributes. YAML is not supported.
 
 Existing v0.1 North Williamstown entries are migrated automatically to the new
 mapping fields while retaining their API key, entry identity, and unique ID.
+
+### Upgrading from the former `ptv` domain
+
+The integration was renamed to the `ptv_line_status` domain. Home Assistant does
+not provide a supported way for a custom integration to transfer config entries
+between domains. Remove entries belonging to the former **Transport Victoria**
+integration, remove the old `custom_components/ptv` directory, install
+`custom_components/ptv_line_status`, restart Home Assistant, and add the desired
+services again through **PTV Line Status**. Do not edit Home Assistant `.storage`
+files.
+
+The entity unique-ID algorithms have not otherwise changed. Re-adding an entry
+creates a new Home Assistant config-entry ID, so entity-registry IDs and history
+from the former domain cannot be guaranteed to attach automatically.
 
 ## Polling and updates
 

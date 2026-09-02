@@ -13,7 +13,7 @@ Do not invent generic Python application structure when Home Assistant has an es
 Use the Home Assistant custom integration structure:
 
 custom_components/
-  ptv/
+  ptv_line_status/
     __init__.py
     manifest.json
     const.py
@@ -25,7 +25,7 @@ custom_components/
 
 tests/
   components/
-    ptv/
+    ptv_line_status/
 
 Do not create a generic `src/` directory.
 

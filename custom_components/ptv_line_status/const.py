@@ -1,9 +1,9 @@
-"""Constants for the Transport Victoria integration."""
+"""Constants for the PTV Line Status integration."""
 
 from datetime import timedelta
 from typing import Final
 
-DOMAIN: Final = "ptv"
+DOMAIN: Final = "ptv_line_status"
 PLATFORMS: Final = ["binary_sensor", "sensor"]
 
 CONF_API_KEY: Final = "api_key"

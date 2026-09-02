@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 from google.transit import gtfs_realtime_pb2
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ptv.const import (
+from custom_components.ptv_line_status.const import (
     CONF_DIRECTION_ID,
     CONF_DIRECTION_NAME,
     CONF_ROUTE_ID,
@@ -19,9 +19,9 @@ from custom_components.ptv.const import (
     STATION_NAME,
     STOP_ID,
 )
-from custom_components.ptv.coordinator import PtvDataUpdateCoordinator
-from custom_components.ptv.sensor import PtvServiceStatusSensor
-from custom_components.ptv.service_alerts import evaluate_service_alerts
+from custom_components.ptv_line_status.coordinator import PtvDataUpdateCoordinator
+from custom_components.ptv_line_status.sensor import PtvServiceStatusSensor
+from custom_components.ptv_line_status.service_alerts import evaluate_service_alerts
 
 from .helpers import feed_with_alert
 

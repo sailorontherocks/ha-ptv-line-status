@@ -2,7 +2,7 @@
 
 from google.transit import gtfs_realtime_pb2
 
-from custom_components.ptv.const import ROUTE_ID
+from custom_components.ptv_line_status.const import ROUTE_ID
 
 
 def feed_with_alert(

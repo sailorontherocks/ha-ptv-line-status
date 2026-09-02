@@ -1,4 +1,4 @@
-"""Sensor platform for Transport Victoria."""
+"""Sensor platform for PTV Line Status."""
 
 from __future__ import annotations
 

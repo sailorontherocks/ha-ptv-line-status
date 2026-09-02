@@ -23,7 +23,7 @@ from typing import IO, Iterator
 # Direct execution puts scripts/ rather than the repository root on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from custom_components.ptv.static_gtfs import (
+from custom_components.ptv_line_status.static_gtfs import (
     METRO_ARCHIVE_PATH,
     REQUIRED_FILES,
     normalized_name,

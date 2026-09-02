@@ -7,20 +7,20 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ptv.api import PtvConnectionError
-from custom_components.ptv.const import (
+from custom_components.ptv_line_status.api import PtvConnectionError
+from custom_components.ptv_line_status.const import (
     CONF_DIRECTION_ID,
     CONF_ROUTE_ID,
     CONF_STOP_ID,
 )
-from custom_components.ptv.coordinator import PtvDataUpdateCoordinator
+from custom_components.ptv_line_status.coordinator import PtvDataUpdateCoordinator
 
 
 async def test_coordinator_network_failure(
     hass: HomeAssistant,
 ) -> None:
     mock_config_entry = MockConfigEntry(
-        domain="ptv",
+        domain="ptv_line_status",
         data={
             "api_key": "test",
             CONF_STOP_ID: "custom-stop",
@@ -38,7 +38,7 @@ async def test_coordinator_network_failure(
 
 async def test_coordinator_uses_entry_mapping(hass: HomeAssistant) -> None:
     entry = MockConfigEntry(
-        domain="ptv",
+        domain="ptv_line_status",
         data={
             "api_key": "test",
             CONF_STOP_ID: "custom-stop",
@@ -51,6 +51,8 @@ async def test_coordinator_uses_entry_mapping(hass: HomeAssistant) -> None:
 
     client.async_get_service_alerts.return_value = feed_with_alert()
     coordinator = PtvDataUpdateCoordinator(hass, entry, client)
-    with patch("custom_components.ptv.coordinator.evaluate_service_alerts") as evaluate:
+    with patch(
+        "custom_components.ptv_line_status.coordinator.evaluate_service_alerts"
+    ) as evaluate:
         await coordinator._async_update_data()
     assert evaluate.call_args.args[2:] == ("custom-route", "custom-stop", 0)

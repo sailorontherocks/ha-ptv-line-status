@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from google.protobuf.message import DecodeError
 from google.transit import gtfs_realtime_pb2
 
-from custom_components.ptv.service_alerts import (
+from custom_components.ptv_line_status.service_alerts import (
     EvaluatedAlert,
     enum_name,
     evaluate_feed,

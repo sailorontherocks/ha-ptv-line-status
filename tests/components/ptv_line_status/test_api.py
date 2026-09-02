@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from custom_components.ptv.api import PtvApiClient, PtvDecodeError
+from custom_components.ptv_line_status.api import PtvApiClient, PtvDecodeError
 
 
 async def test_malformed_protobuf() -> None:

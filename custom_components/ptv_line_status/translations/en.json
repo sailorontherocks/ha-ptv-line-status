@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to Transport Victoria",
+        "title": "Connect PTV Line Status",
         "description": "Enter your Transport Victoria Open Data API key.",
         "data": {
           "api_key": "Open Data API key"
@@ -34,7 +34,7 @@
         }
       },
       "reauth_confirm": {
-        "title": "Reauthenticate Transport Victoria",
+        "title": "Reauthenticate PTV Line Status",
         "description": "The Transport Victoria API key is no longer accepted. Enter a replacement Open Data API key.",
         "data": {
           "api_key": "Replacement Open Data API key"

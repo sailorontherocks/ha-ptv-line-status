@@ -1,4 +1,4 @@
-"""Tests for the Transport Victoria config flow."""
+"""Tests for the PTV Line Status config flow."""
 
 import json
 from pathlib import Path
@@ -10,15 +10,18 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.selector import BooleanSelector, SelectSelector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.ptv.api import PtvAuthenticationError, PtvConnectionError
-from custom_components.ptv.config_flow import (
+from custom_components.ptv_line_status.api import (
+    PtvAuthenticationError,
+    PtvConnectionError,
+)
+from custom_components.ptv_line_status.config_flow import (
     CONF_DIRECTION,
     CONF_RETRY,
     CONF_ROUTE,
     CONF_STATION,
 )
-from custom_components.ptv.const import CONF_API_KEY, DOMAIN
-from custom_components.ptv.static_gtfs import (
+from custom_components.ptv_line_status.const import CONF_API_KEY, DOMAIN
+from custom_components.ptv_line_status.static_gtfs import (
     DirectionChoice,
     GtfsCatalog,
     RouteChoice,
@@ -75,11 +78,11 @@ def add_entry(
 async def start_user(hass: HomeAssistant, key: str = "test-api-key"):
     with (
         patch(
-            "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+            "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
             new=AsyncMock(return_value=feed_with_alert()),
         ),
         patch(
-            "custom_components.ptv.config_flow.async_get_gtfs_catalog",
+            "custom_components.ptv_line_status.config_flow.async_get_gtfs_catalog",
             new=AsyncMock(return_value=CATALOG),
         ),
     ):
@@ -116,7 +119,9 @@ async def test_api_key_form_uses_generic_v2_text(hass: HomeAssistant) -> None:
     )
     assert set(schema_fields(result)) == {CONF_API_KEY}
 
-    integration_path = Path(__file__).parents[3] / "custom_components" / "ptv"
+    integration_path = (
+        Path(__file__).parents[3] / "custom_components" / "ptv_line_status"
+    )
     for filename in ("strings.json", "translations/en.json"):
         strings = json.loads((integration_path / filename).read_text())
         description = strings["config"]["step"]["user"]["description"]
@@ -151,11 +156,11 @@ async def test_catalog_failure_is_visible_and_not_an_empty_form(
 ) -> None:
     with (
         patch(
-            "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+            "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
             new=AsyncMock(return_value=feed_with_alert()),
         ),
         patch(
-            "custom_components.ptv.config_flow.async_get_gtfs_catalog",
+            "custom_components.ptv_line_status.config_flow.async_get_gtfs_catalog",
             new=AsyncMock(side_effect=StaticGtfsError("broken schedule")),
         ),
     ):
@@ -212,7 +217,7 @@ async def test_ambiguous_station_requires_route_selection(hass: HomeAssistant) -
 
 async def test_multiple_config_entries(hass: HomeAssistant) -> None:
     with patch(
-        "custom_components.ptv.api.PtvApiClient.async_get_service_alerts",
+        "custom_components.ptv_line_status.api.PtvApiClient.async_get_service_alerts",
         new=AsyncMock(return_value=feed_with_alert()),
     ):
         first = await start_user(hass, "key-one")
@@ -255,7 +260,7 @@ async def test_existing_mapping_prevents_duplicate_with_legacy_unique_id(
 
 async def test_invalid_api_key(hass: HomeAssistant) -> None:
     with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
         new=AsyncMock(side_effect=PtvAuthenticationError),
     ):
         result = await hass.config_entries.flow.async_init(
@@ -276,7 +281,7 @@ async def test_reauth_preserves_mapping_and_reloads(hass: HomeAssistant) -> None
     entry_count = len(hass.config_entries.async_entries(DOMAIN))
     with (
         patch(
-            "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+            "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
             new=AsyncMock(return_value=feed_with_alert()),
         ),
         patch.object(
@@ -299,7 +304,7 @@ async def test_reauth_rejects_invalid_key(hass: HomeAssistant) -> None:
     entry = add_entry(hass)
     initial = await start_reauth(hass, entry)
     with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
         new=AsyncMock(side_effect=PtvAuthenticationError),
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -314,7 +319,7 @@ async def test_reauth_errors(hass: HomeAssistant) -> None:
     entry = add_entry(hass)
     initial = await start_reauth(hass, entry)
     with patch(
-        "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+        "custom_components.ptv_line_status.config_flow.PtvApiClient.async_get_service_alerts",
         new=AsyncMock(side_effect=PtvConnectionError("offline")),
     ):
         result = await hass.config_entries.flow.async_configure(

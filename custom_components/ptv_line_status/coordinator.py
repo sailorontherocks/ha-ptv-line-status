@@ -1,4 +1,4 @@
-"""Data update coordinator for Transport Victoria service alerts."""
+"""Data update coordinator for PTV Line Status."""
 
 from __future__ import annotations
 

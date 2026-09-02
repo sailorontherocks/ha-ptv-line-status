@@ -1,4 +1,4 @@
-"""Transport Victoria integration."""
+"""PTV Line Status integration."""
 
 from __future__ import annotations
 

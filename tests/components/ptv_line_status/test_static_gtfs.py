@@ -5,7 +5,10 @@ import zipfile
 
 import pytest
 
-from custom_components.ptv.static_gtfs import StaticGtfsError, parse_gtfs_catalog
+from custom_components.ptv_line_status.static_gtfs import (
+    StaticGtfsError,
+    parse_gtfs_catalog,
+)
 
 
 def make_feed() -> bytes:
