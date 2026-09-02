@@ -1,0 +1,34 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Transport Victoria",
+        "description": "Enter an Open Data API key to monitor North Williamstown services towards the City.",
+        "data": {
+          "api_key": "Open Data API key"
+        },
+        "data_description": {
+          "api_key": "The key is stored in the config entry and is never exposed as an entity attribute."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Transport Victoria",
+        "description": "The Transport Victoria API key is no longer accepted. Enter a replacement Open Data API key.",
+        "data": {
+          "api_key": "Replacement Open Data API key"
+        },
+        "data_description": {
+          "api_key": "The replacement key will be validated before the existing integration entry is updated."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to Transport Victoria",
+      "invalid_auth": "The API key was rejected"
+    },
+    "abort": {
+      "already_configured": "North Williamstown towards the City is already configured",
+      "reauth_successful": "Reauthentication was successful"
+    }
+  }
+}

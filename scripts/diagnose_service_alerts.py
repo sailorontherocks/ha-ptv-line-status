@@ -8,166 +8,34 @@ The route, stop, and direction defaults were established from static Metro GTFS.
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
-from datetime import datetime, timezone
+import sys
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Iterable
 
-from google.transit import gtfs_realtime_pb2
+# Direct script execution puts scripts/ rather than the repository root on the
+# import path. Add the root so this CLI can use the integration's shared logic.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from google.protobuf.message import DecodeError
+from google.transit import gtfs_realtime_pb2
 
+from custom_components.ptv.service_alerts import (
+    EvaluatedAlert,
+    enum_name,
+    evaluate_feed,
+    translated_text,
+)
 
 DEFAULT_ROUTE_ID = "aus:vic:vic-02-WIL:"
 DEFAULT_STOP_ID = "vic:rail:NWN"
 DEFAULT_DIRECTION_ID = 1
 
-STATUS_RANK = {
-    "NORMAL": 0,
-    "UNKNOWN": 1,
-    "DELAYED": 2,
-    "DISRUPTED": 3,
-    "SUSPENDED": 4,
-}
-
-# Effects, rather than causes or free text, are the conservative source of the
-# operational classification. Construction, for example, may concern a carpark
-# while trains continue to run normally.
-OPERATIONAL_EFFECTS = {
-    "NO_SERVICE": ("SUSPENDED", "effect explicitly says there is no service"),
-    "REDUCED_SERVICE": ("DISRUPTED", "effect explicitly says service is reduced"),
-    "SIGNIFICANT_DELAYS": ("DELAYED", "effect explicitly reports significant delays"),
-    "DETOUR": ("DISRUPTED", "effect explicitly reports a service detour"),
-    "MODIFIED_SERVICE": ("DISRUPTED", "effect explicitly says service is modified"),
-    "UNKNOWN_EFFECT": (
-        "UNKNOWN",
-        "the matching alert's effect is unknown, so normal operation cannot be confirmed",
-    ),
-}
-
-
-@dataclass(frozen=True)
-class Match:
-    """One informed-entity selector that matches the requested service."""
-
-    route_id: str
-    stop_id: str
-    direction_id: int | None
-
-
-@dataclass(frozen=True)
-class EvaluatedAlert:
-    """An active matching alert and its classification."""
-
-    entity: object
-    matches: tuple[Match, ...]
-    status: str | None
-    reason: str
-
-
-def enum_name(wrapper: object, value: int) -> str:
-    """Return a protobuf enum name, preserving unknown future numeric values."""
-    try:
-        return wrapper.Name(value)  # type: ignore[attr-defined, no-any-return]
-    except ValueError:
-        return f"UNRECOGNIZED({value})"
-
-
-def translated_text(message: object) -> str:
-    """Choose English text where available, otherwise the first translation."""
-    translations = message.translation  # type: ignore[attr-defined]
-    if not translations:
-        return "<none>"
-    for translation in translations:
-        if translation.language.casefold().startswith("en"):
-            return translation.text
-    return translations[0].text
-
-
-def period_is_active(period: object, now: int) -> bool:
-    """Apply GTFS-RT's open-ended start/end rules to an active period."""
-    starts = not period.HasField("start") or period.start <= now  # type: ignore[attr-defined]
-    has_not_ended = not period.HasField("end") or now < period.end  # type: ignore[attr-defined]
-    return starts and has_not_ended
-
-
-def alert_is_active(alert: object, now: int) -> bool:
-    """An omitted active_period means the alert has no time restriction."""
-    periods = alert.active_period  # type: ignore[attr-defined]
-    return not periods or any(period_is_active(period, now) for period in periods)
-
-
-def matching_selectors(
-    alert: object, route_id: str, stop_id: str, direction_id: int
-) -> tuple[Match, ...]:
-    """Match route/direction selectors, accepting route-wide or target-stop alerts."""
-    matches = []
-    for selector in alert.informed_entity:  # type: ignore[attr-defined]
-        if selector.route_id != route_id:
-            continue
-        if selector.HasField("direction_id") and selector.direction_id != direction_id:
-            continue
-        # Blank stop means route-wide. A nonblank stop must be the configured
-        # station stop_id; unrelated stations must not affect this diagnosis.
-        if selector.stop_id and selector.stop_id != stop_id:
-            continue
-        matches.append(
-            Match(
-                route_id=selector.route_id,
-                stop_id=selector.stop_id,
-                direction_id=(
-                    selector.direction_id
-                    if selector.HasField("direction_id")
-                    else None
-                ),
-            )
-        )
-    return tuple(matches)
-
-
-def classify_alert(alert: object) -> tuple[str | None, str]:
-    """Classify only explicit operational effects; do not infer from alert prose."""
-    effect = enum_name(gtfs_realtime_pb2.Alert.Effect, alert.effect)  # type: ignore[attr-defined]
-    if effect in OPERATIONAL_EFFECTS:
-        return OPERATIONAL_EFFECTS[effect]
-    return (
-        None,
-        f"effect {effect} does not explicitly indicate that trains are disrupted; "
-        "cause and free text are not used to infer a disruption",
-    )
-
-
-def evaluate_feed(
-    feed: object, now: int, route_id: str, stop_id: str, direction_id: int
-) -> tuple[str, list[EvaluatedAlert], list[EvaluatedAlert], int]:
-    """Return overall status, operational, informational, and inactive-match count."""
-    operational = []
-    informational = []
-    inactive_matches = 0
-    for entity in feed.entity:  # type: ignore[attr-defined]
-        if not entity.HasField("alert"):
-            continue
-        matches = matching_selectors(entity.alert, route_id, stop_id, direction_id)
-        if not matches:
-            continue
-        if not alert_is_active(entity.alert, now):
-            inactive_matches += 1
-            continue
-        status, reason = classify_alert(entity.alert)
-        evaluated = EvaluatedAlert(entity, matches, status, reason)
-        (operational if status is not None else informational).append(evaluated)
-
-    overall = max(
-        (item.status for item in operational if item.status is not None),
-        key=STATUS_RANK.__getitem__,
-        default="NORMAL",
-    )
-    return overall, operational, informational, inactive_matches
-
 
 def format_timestamp(value: int | None) -> str:
     if value is None:
         return "open"
-    return datetime.fromtimestamp(value, timezone.utc).isoformat()
+    return datetime.fromtimestamp(value, UTC).isoformat()
 
 
 def format_periods(alert: object) -> str:
@@ -191,15 +59,19 @@ def print_alerts(title: str, alerts: Iterable[EvaluatedAlert]) -> None:
         print(f"  alert ID: {entity.id}")  # type: ignore[attr-defined]
         print(f"    cause: {enum_name(gtfs_realtime_pb2.Alert.Cause, alert.cause)}")
         print(f"    effect: {enum_name(gtfs_realtime_pb2.Alert.Effect, alert.effect)}")
-        print(f"    header: {translated_text(alert.header_text)}")
-        print(f"    description: {translated_text(alert.description_text)}")
+        print(f"    header: {translated_text(alert.header_text) or '<none>'}")
+        print(f"    description: {translated_text(alert.description_text) or '<none>'}")
         print(f"    active period: {format_periods(alert)}")
         for match in item.matches:
             print(f"    matching route: {match.route_id}")
             print(f"    matching stop: {match.stop_id or '<blank: route-wide>'}")
             print(
                 "    matching direction: "
-                + (str(match.direction_id) if match.direction_id is not None else "<unset: all>")
+                + (
+                    str(match.direction_id)
+                    if match.direction_id is not None
+                    else "<unset: all>"
+                )
             )
         print(f"    classification reason: {item.reason}")
     if not found:
@@ -229,7 +101,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    now = args.at if args.at is not None else int(datetime.now(timezone.utc).timestamp())
+    now = args.at if args.at is not None else int(datetime.now(UTC).timestamp())
     feed = gtfs_realtime_pb2.FeedMessage()
     try:
         feed.ParseFromString(args.feed.read_bytes())
@@ -248,7 +120,7 @@ def main() -> int:
     print(f"  stop: {args.stop_id}")
     print(f"  direction: {args.direction_id} (towards City)")
     print(f"  inactive matching alerts excluded: {inactive}")
-    print(f"\nOVERALL RESULT: {overall}")
+    print(f"\nOVERALL RESULT: {overall.value.upper()}")
     print_alerts("OPERATIONAL ALERTS AFFECTING RESULT", operational)
     print_alerts("INFORMATIONAL ALERTS EXCLUDED FROM RESULT", informational)
     return 0

@@ -1,0 +1,10 @@
+{
+  "domain": "ptv",
+  "name": "Transport Victoria",
+  "codeowners": [],
+  "config_flow": true,
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": ["gtfs-realtime-bindings==2.2.0"],
+  "version": "0.1.0"
+}
