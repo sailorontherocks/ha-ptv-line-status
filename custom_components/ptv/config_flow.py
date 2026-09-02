@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -10,9 +11,11 @@ from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    BooleanSelector,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
+    SelectSelectorMode,
 )
 
 from .api import PtvApiClient, PtvApiError, PtvAuthenticationError
@@ -32,10 +35,18 @@ from .static_gtfs import GtfsCatalog, RouteChoice, StaticGtfsError, StationChoic
 CONF_STATION = "station"
 CONF_ROUTE = "route"
 CONF_DIRECTION = "direction"
+CONF_RETRY = "retry"
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _selector(options: list[SelectOptionDict]) -> SelectSelector:
-    return SelectSelector(SelectSelectorConfig(options=options))
+    return SelectSelector(
+        SelectSelectorConfig(
+            options=options,
+            mode=SelectSelectorMode.DROPDOWN,
+        )
+    )
 
 
 class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -100,15 +111,21 @@ class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         errors: dict[str, str] = {}
+        retrying = user_input is not None and CONF_RETRY in user_input
         if not hasattr(self, "_catalog"):
             try:
                 self._catalog = await async_get_gtfs_catalog(self.hass)
-            except StaticGtfsError:
+            except StaticGtfsError as err:
+                _LOGGER.warning("Unable to load Metro static GTFS catalog: %s", err)
                 return self.async_show_form(
                     step_id="station",
-                    data_schema=vol.Schema({}),
+                    data_schema=vol.Schema(
+                        {vol.Required(CONF_RETRY, default=True): BooleanSelector()}
+                    ),
                     errors={"base": "static_gtfs_error"},
                 )
+        if retrying:
+            user_input = None
         if user_input is not None:
             station = self._catalog.stations.get(user_input[CONF_STATION])
             if station is None:

@@ -15,7 +15,8 @@
         "title": "Select a Metro station",
         "description": "Choose the station whose train service status you want to monitor.",
         "data": {
-          "station": "Station"
+          "station": "Station",
+          "retry": "Retry loading the Metro station list"
         }
       },
       "route": {
@@ -46,13 +47,13 @@
     "error": {
       "cannot_connect": "Unable to connect to Transport Victoria",
       "invalid_auth": "The API key was rejected",
-      "static_gtfs_error": "Unable to download or read the Metro train schedule",
+      "static_gtfs_error": "The Metro station list could not be loaded. Check the Home Assistant log and retry.",
       "station_not_found": "The selected station was not found",
       "no_valid_route": "The selected station has no valid Metro train route",
       "no_resolvable_direction": "No valid direction could be resolved for this service"
     },
     "abort": {
-      "already_configured": "North Williamstown towards the City is already configured",
+      "already_configured": "This station, line, and direction is already configured",
       "reauth_successful": "Reauthentication was successful"
     }
   }

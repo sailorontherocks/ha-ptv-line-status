@@ -1,19 +1,28 @@
 """Tests for the Transport Victoria config flow."""
 
+import json
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.selector import BooleanSelector, SelectSelector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.ptv.api import PtvAuthenticationError, PtvConnectionError
-from custom_components.ptv.config_flow import CONF_DIRECTION, CONF_ROUTE, CONF_STATION
+from custom_components.ptv.config_flow import (
+    CONF_DIRECTION,
+    CONF_RETRY,
+    CONF_ROUTE,
+    CONF_STATION,
+)
 from custom_components.ptv.const import CONF_API_KEY, DOMAIN
 from custom_components.ptv.static_gtfs import (
     DirectionChoice,
     GtfsCatalog,
     RouteChoice,
+    StaticGtfsError,
     StationChoice,
 )
 
@@ -91,6 +100,71 @@ async def start_reauth(hass: HomeAssistant, entry: MockConfigEntry):
         },
         data=entry.data,
     )
+
+
+def schema_fields(result) -> dict[str, object]:
+    """Return a config-flow schema keyed by plain field name."""
+    return {
+        marker.schema: validator
+        for marker, validator in result["data_schema"].schema.items()
+    }
+
+
+async def test_api_key_form_uses_generic_v2_text(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    assert set(schema_fields(result)) == {CONF_API_KEY}
+
+    integration_path = Path(__file__).parents[3] / "custom_components" / "ptv"
+    for filename in ("strings.json", "translations/en.json"):
+        strings = json.loads((integration_path / filename).read_text())
+        description = strings["config"]["step"]["user"]["description"]
+        assert description == "Enter your Transport Victoria Open Data API key."
+        assert "North Williamstown" not in description
+
+
+async def test_valid_key_shows_nonempty_station_selector(
+    hass: HomeAssistant,
+) -> None:
+    result = await start_user(hass)
+    fields = schema_fields(result)
+    assert set(fields) == {CONF_STATION}
+    assert isinstance(fields[CONF_STATION], SelectSelector)
+    options = fields[CONF_STATION].config["options"]
+    assert options
+    assert {option["label"] for option in options} >= {
+        "North Williamstown",
+        "Newport",
+    }
+    assert all("label" in option and "value" in option for option in options)
+
+
+async def test_catalog_failure_is_visible_and_not_an_empty_form(
+    hass: HomeAssistant,
+) -> None:
+    with (
+        patch(
+            "custom_components.ptv.config_flow.PtvApiClient.async_get_service_alerts",
+            new=AsyncMock(return_value=feed_with_alert()),
+        ),
+        patch(
+            "custom_components.ptv.config_flow.async_get_gtfs_catalog",
+            new=AsyncMock(side_effect=StaticGtfsError("broken schedule")),
+        ),
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": config_entries.SOURCE_USER},
+            data={CONF_API_KEY: "valid-key"},
+        )
+
+    fields = schema_fields(result)
+    assert result["step_id"] == "station"
+    assert result["errors"] == {"base": "static_gtfs_error"}
+    assert set(fields) == {CONF_RETRY}
+    assert isinstance(fields[CONF_RETRY], BooleanSelector)
+    assert CONF_STATION not in fields
 
 
 async def test_selecting_station_and_direction_stores_mapping(
