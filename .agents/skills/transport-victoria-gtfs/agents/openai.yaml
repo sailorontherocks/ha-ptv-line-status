@@ -1,0 +1,4 @@
+interface:
+  display_name: "Transport Victoria GTFS"
+  short_description: "Resolve Victorian static GTFS identifiers"
+  default_prompt: "Use $transport-victoria-gtfs to resolve a Victorian station, route, and human direction from static GTFS."
