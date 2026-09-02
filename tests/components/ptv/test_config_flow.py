@@ -122,6 +122,12 @@ async def test_api_key_form_uses_generic_v2_text(hass: HomeAssistant) -> None:
         description = strings["config"]["step"]["user"]["description"]
         assert description == "Enter your Transport Victoria Open Data API key."
         assert "North Williamstown" not in description
+        assert strings["config"]["step"]["station"]["data"][CONF_RETRY] == (
+            "Retry loading the Metro station list"
+        )
+        assert strings["config"]["error"]["static_gtfs_error"].startswith(
+            "The Metro station list could not be loaded"
+        )
 
 
 async def test_valid_key_shows_nonempty_station_selector(

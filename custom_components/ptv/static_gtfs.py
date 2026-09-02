@@ -45,10 +45,22 @@ class StationChoice:
 
 
 @dataclass(frozen=True)
+class GtfsCatalogStats:
+    """Useful parsing counts for diagnostics and regression detection."""
+
+    stop_count: int = 0
+    parent_station_count: int = 0
+    route_count: int = 0
+    trip_count: int = 0
+    selectable_station_count: int = 0
+
+
+@dataclass(frozen=True)
 class GtfsCatalog:
     """Compact configuration catalog keyed by parent station ID."""
 
     stations: dict[str, StationChoice]
+    stats: GtfsCatalogStats = GtfsCatalogStats()
 
 
 def normalized_name(value: str) -> str:
@@ -66,12 +78,17 @@ def _display_name(value: str) -> str:
 
 def _direction_name(headsigns: Counter[str]) -> str | None:
     """Choose the published destination most commonly used by serving trips."""
+    for headsign in headsigns:
+        label = _display_name(headsign)
+        if "city" in label.casefold() or normalized_name(label) in {
+            "flinders street",
+            "southern cross",
+        }:
+            return "City"
     for headsign, _count in headsigns.most_common():
         label = _display_name(headsign)
         if not label:
             continue
-        if "city" in label.casefold():
-            return "City"
         return label
     return None
 
@@ -123,19 +140,38 @@ def _parse_metro_catalog(metro: zipfile.ZipFile) -> GtfsCatalog:
         for row in stops
         if row.get("location_type") == "1"
     }
+    parents_by_name: dict[str, list[str]] = defaultdict(list)
+    for parent_id, parent_name in parents.items():
+        parents_by_name[normalized_name(parent_name)].append(parent_id)
+
+    def resolve_parent(row: dict[str, str]) -> str | None:
+        """Use the parent link, falling back to the diagnostic's name match."""
+        linked_parent = row.get("parent_station", "")
+        if linked_parent in parents:
+            return linked_parent
+        same_name = parents_by_name.get(normalized_name(row.get("stop_name", "")), [])
+        return same_name[0] if len(same_name) == 1 else None
+
+    def is_replacement_platform(row: dict[str, str]) -> bool:
+        platform = normalized_name(row.get("platform_code", ""))
+        stop_name = normalized_name(row.get("stop_name", ""))
+        return (
+            platform in {"r bus", "replacement bus"} or "replacement bus" in stop_name
+        )
+
     platform_parents = {
-        row["stop_id"]: row.get("parent_station", "")
+        row["stop_id"]: parent_id
         for row in stops
+        if (parent_id := resolve_parent(row)) is not None
         if row.get("location_type", "0") in {"", "0"}
-        and row.get("parent_station") in parents
-        and row.get("platform_code", "").casefold() != "r-bus"
+        and not is_replacement_platform(row)
     }
     route_names = {
         row["route_id"]: _display_name(
             row.get("route_short_name") or row.get("route_long_name", "")
         )
         for row in routes
-        if row.get("route_type") == "2"
+        if (row.get("route_short_name") or row.get("route_long_name"))
         and "replacement bus"
         not in (
             f"{row.get('route_short_name', '')} {row.get('route_long_name', '')}"
@@ -189,6 +225,19 @@ def _parse_metro_catalog(metro: zipfile.ZipFile) -> GtfsCatalog:
         )
         if choices:
             stations[parent_id] = StationChoice(parent_id, parents[parent_id], choices)
+    stats = GtfsCatalogStats(
+        stop_count=len(stops),
+        parent_station_count=len(parents),
+        route_count=len(route_names),
+        trip_count=len(trip_data),
+        selectable_station_count=len(stations),
+    )
     if not stations:
-        raise StaticGtfsError("Metro GTFS contains no resolvable train stations")
-    return GtfsCatalog(stations)
+        raise StaticGtfsError(
+            "Metro GTFS contains no resolvable train stations "
+            f"(stops={stats.stop_count}, "
+            f"parent_stations={stats.parent_station_count}, "
+            f"rail_routes={stats.route_count}, trips={stats.trip_count}, "
+            f"selectable_stations={stats.selectable_station_count})"
+        )
+    return GtfsCatalog(stations, stats)
