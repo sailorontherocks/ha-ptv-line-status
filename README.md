@@ -1,5 +1,9 @@
 # PTV Line Status for Home Assistant
 
+<p align="center">
+  <img src="logo.png" alt="PTV Line Status logo" width="220">
+</p>
+
 Project/repository: `ha-ptv-line-status`
 
 Home Assistant integration: **PTV Line Status** (`ptv_line_status`)
