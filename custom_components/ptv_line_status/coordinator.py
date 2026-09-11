@@ -48,13 +48,13 @@ class PtvDataUpdateCoordinator(DataUpdateCoordinator[ServiceAlertResult]):
         try:
             feed = await self._client.async_get_service_alerts()
         except PtvAuthenticationError as err:
-            raise ConfigEntryAuthFailed(
-                "Transport Victoria API key was rejected"
-            ) from err
+            if err.status in (401, 403):
+                raise ConfigEntryAuthFailed(str(err)) from None
+            raise UpdateFailed(str(err)) from None
         except PtvApiError as err:
             raise UpdateFailed(
                 f"Unable to update Transport Victoria alerts: {err}"
-            ) from err
+            ) from None
 
         return evaluate_service_alerts(
             feed,

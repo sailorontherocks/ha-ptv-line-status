@@ -234,4 +234,8 @@ class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def _async_validate_api_key(self, api_key: str) -> None:
         client = PtvApiClient(async_get_clientsession(self.hass), api_key)
-        await client.async_get_service_alerts()
+        try:
+            await client.async_get_service_alerts()
+        except PtvApiError as err:
+            _LOGGER.debug("Service Alerts validation failed: %s", err)
+            raise

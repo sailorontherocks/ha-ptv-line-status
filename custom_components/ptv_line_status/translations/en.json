@@ -35,7 +35,7 @@
       },
       "reauth_confirm": {
         "title": "Reauthenticate PTV Line Status",
-        "description": "The Transport Victoria API key is no longer accepted. Enter a replacement Open Data API key.",
+        "description": "Transport Victoria returned an authentication failure. Check your Open Data API key, or retry later if the service is experiencing an outage.",
         "data": {
           "api_key": "Replacement Open Data API key"
         },
@@ -46,7 +46,7 @@
     },
     "error": {
       "cannot_connect": "Unable to connect to Transport Victoria",
-      "invalid_auth": "The API key was rejected",
+      "invalid_auth": "Transport Victoria authentication failed. Check the API key or retry later.",
       "static_gtfs_error": "The Metro station list could not be loaded. Check the Home Assistant log and retry.",
       "station_not_found": "The selected station was not found",
       "no_valid_route": "The selected station has no valid Metro train route",

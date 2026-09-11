@@ -79,6 +79,34 @@ Authentication failures trigger Home Assistant's authentication-failure path.
 Network, HTTP, and malformed protobuf failures mark coordinator data unavailable
 and retain Home Assistant's normal retry behavior.
 
+## Troubleshooting
+
+To enable diagnostic logging, add this to your Home Assistant configuration:
+
+```yaml
+logger:
+  logs:
+    custom_components.ptv_line_status: debug
+```
+
+Debug logs must never contain the API key. Failures include the feed and fixed
+endpoint host/path, HTTP status/reason and content type when available. Only
+allowlisted correlation/request IDs and rate-limit `Retry-After` values are
+included. Text/JSON/XML HTTP error excerpts are sanitised, normalised and limited
+to 200 characters; request headers and raw transport exceptions are not logged.
+Review logs before sharing them, since upstream error text can contain other
+server-provided information.
+
+HTTP 401/403 triggers reauthentication, but does not prove the key has expired:
+a gateway or authentication-service outage can produce the same response. Retry
+the unchanged key once the upstream service recovers. HTTP 429, 5xx, timeout and
+connection failures remain temporary update failures. Empty responses, unexpected
+content types and invalid protobuf are data failures. The normal 60-second polling
+interval is unchanged; `Retry-After` is reported for diagnosis, not used to alter it.
+Home Assistant's coordinator logs unavailability and recovery without repeating
+the same error on every poll. Config-flow screens show concise translated errors,
+not server response text; safe validation details are available at debug level.
+
 ## Known limitations
 
 - Metro trains only; buses, trams, regional trains, and replacement buses are
