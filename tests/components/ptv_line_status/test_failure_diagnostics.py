@@ -82,7 +82,7 @@ async def test_http_evidence(status, category):
     session.get.assert_called_once()
     assert session.get.call_args.kwargs["allow_redirects"] is False
     headers = session.get.call_args.kwargs["headers"]
-    assert headers["User-Agent"] == "ptv-line-status/0.2.2 (Home Assistant)"
+    assert headers["User-Agent"] == "ptv-line-status/0.2.3 (Home Assistant)"
     assert headers["Accept"] == (
         "application/octet-stream, application/x-protobuf, application/protobuf"
     )

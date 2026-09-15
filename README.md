@@ -8,7 +8,7 @@ Project/repository: `ha-ptv-line-status`
 
 Home Assistant integration: **PTV Line Status** (`ptv_line_status`)
 
-Version 0.2 creates two Home Assistant entities for each configured Metro train
+Version 0.2.3 creates three Home Assistant entities for each configured Metro train
 station, line, and direction. Multiple entries can be added, such as
 **North Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
 
@@ -16,9 +16,22 @@ station, line, and direction. Multiple entries can be added, such as
   `disrupted`, `suspended`, or `unknown`.
 - **Service issue** is a problem binary sensor. It is off for `normal` and on
   for `delayed`, `disrupted`, `suspended`, or `unknown`.
+- **Service notice** displays a concise message: data unavailable, active
+  suspension/disruption/delay (or unknown status), planned disruption, or normal
+  service. Active alerts override planned notices. On refresh failure this notice
+  remains available to explain the failure while the other entities become
+  unavailable. Initial setup must still complete its first successful refresh.
 
-Both entities use the same coordinator data and therefore share one realtime
+All three entities use the same coordinator data and therefore share one realtime
 feed request and polling schedule per configured service.
+
+When only future structured alert periods match, status stays `normal`, issue
+stays off, and notice says `Planned disruption`. Notice attributes include up to
+10 upcoming alert summaries (headlines limited to 200 characters), the full count,
+a truncation flag, and the next start/end as Australia/Melbourne ISO timestamps.
+Expired and informational alerts are excluded. Times update on the next successful
+60-second refresh. A broad multi-day period cannot establish nightly hours such
+as "8:30 pm to last service"; free-text timing is not parsed.
 
 The integration polls Transport Victoria's Metro GTFS-Realtime Service Alerts
 feed and uses explicit GTFS alert effects to classify service. Informational

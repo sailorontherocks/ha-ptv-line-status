@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
+from zoneinfo import ZoneInfo
 
 from google.transit import gtfs_realtime_pb2
 
@@ -90,6 +91,17 @@ class AlertDetail:
 
 
 @dataclass(frozen=True)
+class PlannedAlert:
+    """A compact matching alert with its next future period."""
+
+    alert_id: str
+    header: str | None
+    effect: str
+    start: datetime
+    end: datetime | None
+
+
+@dataclass(frozen=True)
 class ServiceAlertResult:
     """Structured result consumed by the coordinator and sensor."""
 
@@ -98,6 +110,8 @@ class ServiceAlertResult:
     informational_alert_count: int
     inactive_alert_count: int
     feed_timestamp: datetime | None
+    planned_alerts: tuple[PlannedAlert, ...] = ()
+    planned_alert_count: int = 0
 
 
 def enum_name(wrapper: object, value: int) -> str:
@@ -218,10 +232,47 @@ def evaluate_service_alerts(
         for item in operational
     )
     timestamp = feed.header.timestamp  # type: ignore[attr-defined]
+    planned: list[PlannedAlert] = []
+    melbourne = ZoneInfo("Australia/Melbourne")
+    for entity in feed.entity:
+        if not entity.HasField("alert"):
+            continue
+        alert = entity.alert
+        if (
+            not matching_selectors(alert, route_id, stop_id, direction_id)
+            or alert_is_active(alert, now)
+            or classify_alert(alert)[0] is None
+        ):
+            continue
+        future = [
+            period
+            for period in alert.active_period
+            if period.HasField("start")
+            and period.start > now
+            and (not period.HasField("end") or period.end > period.start)
+        ]
+        if not future:
+            continue
+        period = min(future, key=lambda item: item.start)
+        header = translated_text(alert.header_text)
+        planned.append(
+            PlannedAlert(
+                alert_id=entity.id[:200],
+                header=header[:200] if header else None,
+                effect=enum_name(gtfs_realtime_pb2.Alert.Effect, alert.effect),
+                start=datetime.fromtimestamp(period.start, melbourne),
+                end=datetime.fromtimestamp(period.end, melbourne)
+                if period.HasField("end")
+                else None,
+            )
+        )
+    planned.sort(key=lambda item: (item.start, item.alert_id))
     return ServiceAlertResult(
         status=status,
         operational_alerts=details,
         informational_alert_count=len(informational),
         inactive_alert_count=inactive,
         feed_timestamp=(datetime.fromtimestamp(timestamp, UTC) if timestamp else None),
+        planned_alerts=tuple(planned[:10]),
+        planned_alert_count=len(planned),
     )
