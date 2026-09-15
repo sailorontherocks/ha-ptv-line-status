@@ -119,3 +119,20 @@ not server response text; safe validation details are available at debug level.
   effects, not keywords in alert titles or descriptions.
 - Operational alert attributes contain compact summaries rather than complete
   GTFS-Realtime payloads.
+
+## PTV data attribution and disclaimer
+
+Source: Licensed from Public Transport Victoria under a Creative Commons
+Attribution 4.0 International Licence.
+
+This project is not affiliated with, endorsed by, or sponsored by Public
+Transport Victoria or Home Assistant.
+
+The project logo is not an official Public Transport Victoria or Home Assistant
+logo. Its provenance should be confirmed before public release; replace it with
+an original, non-official visual if it incorporates either organisation's
+branding or trademarked material.
+
+## Licence
+
+This project is licensed under the MIT License. See LICENSE.
