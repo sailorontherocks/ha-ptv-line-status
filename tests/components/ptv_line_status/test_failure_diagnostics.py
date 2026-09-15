@@ -15,6 +15,7 @@ from custom_components.ptv_line_status.api import (
     PtvApiClient,
     PtvApiError,
     PtvAuthenticationError,
+    PtvUpstreamAccessError,
 )
 from custom_components.ptv_line_status.coordinator import PtvDataUpdateCoordinator
 
@@ -49,7 +50,6 @@ def client_response(status=200, body=None, content_type="application/octet-strea
     ("status", "category"),
     [
         (401, "authentication"),
-        (403, "authentication"),
         (429, "rate_limit"),
         (500, "upstream"),
         (503, "upstream"),
@@ -67,7 +67,7 @@ async def test_http_evidence(status, category):
     error = caught.value
     assert error.status == status
     assert error.category == category
-    assert isinstance(error, PtvAuthenticationError) == (status in (401, 403))
+    assert isinstance(error, PtvAuthenticationError) == (status == 401)
     message = str(error)
     assert f"HTTP {status} Gateway reason" in message
     assert "x-request-id=request-123" in message
@@ -81,6 +81,46 @@ async def test_http_evidence(status, category):
         assert "retry_after=30" in message
     session.get.assert_called_once()
     assert session.get.call_args.kwargs["allow_redirects"] is False
+    headers = session.get.call_args.kwargs["headers"]
+    assert headers["User-Agent"] == "ptv-line-status/0.2.2 (Home Assistant)"
+    assert headers["Accept"] == (
+        "application/octet-stream, application/x-protobuf, application/protobuf"
+    )
+
+
+async def test_waf_1010_is_retryable_upstream_access_error(hass):
+    client, _ = client_response(403, b"error code: 1010", "text/plain; charset=UTF-8")
+    with pytest.raises(PtvUpstreamAccessError) as caught:
+        await client.async_get_service_alerts()
+    assert caught.value.category == "upstream_access"
+    assert caught.value.status == 403
+    assert "error code: 1010" in str(caught.value)
+
+    entry = MockConfigEntry(
+        domain="ptv_line_status",
+        data={"stop_id": "stop", "route_id": "route", "direction_id": 1},
+    )
+    coordinator = PtvDataUpdateCoordinator(hass, entry, client)
+    with pytest.raises(UpdateFailed, match="upstream access was blocked"):
+        await coordinator._async_update_data()
+
+    with patch(
+        "custom_components.ptv_line_status.config_flow.PtvApiClient",
+        return_value=client,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            "ptv_line_status",
+            context={"source": "user"},
+            data={"api_key": SECRET},
+        )
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_403_requires_explicit_api_key_rejection_evidence():
+    client, _ = client_response(403, b"invalid API key", "text/plain")
+    with pytest.raises(PtvAuthenticationError) as caught:
+        await client.async_get_service_alerts()
+    assert caught.value.category == "authentication"
 
 
 @pytest.mark.parametrize(
@@ -118,7 +158,9 @@ async def test_data_failures(body, content_type, category):
 
 @pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
 async def test_coordinator_mapping(hass, status):
-    client, _ = client_response(status)
+    client, _ = client_response(
+        status, b"invalid API key" if status == 403 else None, "text/plain"
+    )
     entry = MockConfigEntry(
         domain="ptv_line_status",
         data={
@@ -160,7 +202,8 @@ async def test_recovery_and_log_suppression(hass, caplog):
 
 @pytest.mark.parametrize("status", [401, 403, 429, 503])
 async def test_flow_uses_safe_concise_errors(hass, caplog, status):
-    client, _ = client_response(status, SECRET.encode(), "text/plain")
+    body = b"invalid API key" if status == 403 else SECRET.encode()
+    client, _ = client_response(status, body, "text/plain")
     caplog.set_level(logging.DEBUG)
     with patch(
         "custom_components.ptv_line_status.config_flow.PtvApiClient",
@@ -190,7 +233,7 @@ async def test_metadata_redaction_and_failed_error_body():
         }
     )
     response.content.readexactly.side_effect = ClientConnectionError(SECRET)
-    with pytest.raises(PtvAuthenticationError) as caught:
+    with pytest.raises(PtvUpstreamAccessError) as caught:
         await client.async_get_service_alerts()
     message = "".join(traceback.format_exception(caught.value))
     assert caught.value.status == 403

@@ -22,6 +22,12 @@ _PROTOBUF_TYPES = {
     "application/protobuf",
     "application/vnd.google.protobuf",
 }
+_USER_AGENT = "ptv-line-status/0.2.2 (Home Assistant)"
+_ACCEPT = "application/octet-stream, application/x-protobuf, application/protobuf"
+_WAF_1010 = re.compile(r"\berror\s+code\s*:\s*1010\b", re.IGNORECASE)
+_REJECTED_API_KEY = re.compile(
+    r"\b(?:invalid|rejected)\s+(?:api[ _-]?key|keyid)\b", re.IGNORECASE
+)
 
 
 def _sanitize(value: str, api_key: str, limit: int = 200) -> str:
@@ -61,6 +67,10 @@ class PtvConnectionError(PtvApiError):
     """The service could not be reached or returned an HTTP error."""
 
 
+class PtvUpstreamAccessError(PtvConnectionError):
+    """An upstream gateway blocked access without rejecting the API key."""
+
+
 class PtvDecodeError(PtvApiError):
     """The response was not a valid GTFS-Realtime feed."""
 
@@ -70,7 +80,11 @@ class PtvApiClient:
 
     def __init__(self, session: ClientSession, api_key: str) -> None:
         self._session = session
-        self._headers = {"KeyID": api_key}
+        self._headers = {
+            "KeyID": api_key,
+            "User-Agent": _USER_AGENT,
+            "Accept": _ACCEPT,
+        }
 
     def _error(
         self,
@@ -109,6 +123,8 @@ class PtvApiClient:
         error_type: type[PtvApiError] = PtvConnectionError
         if category == "authentication":
             error_type = PtvAuthenticationError
+        elif category == "upstream_access":
+            error_type = PtvUpstreamAccessError
         elif category in {"empty_response", "content_type", "protobuf"}:
             error_type = PtvDecodeError
         return error_type(
@@ -136,19 +152,6 @@ class PtvApiClient:
                         headers=response.headers,
                     )
                     if not 200 <= status < 300:
-                        category, message = (
-                            "http_status",
-                            "returned unexpected HTTP status",
-                        )
-                        if status in (401, 403):
-                            category, message = (
-                                "authentication",
-                                "authentication failed",
-                            )
-                        elif status == 429:
-                            category, message = "rate_limit", "rate limit reached"
-                        elif 500 <= status <= 599:
-                            category, message = "upstream", "service unavailable"
                         body = b""
                         if media_type.startswith("text/") or media_type in {
                             "application/json",
@@ -163,6 +166,39 @@ class PtvApiClient:
                                 else:
                                     parts = body.rsplit(None, 1)
                                     body = parts[0] if len(parts) == 2 else b""
+                        category, message = (
+                            "http_status",
+                            "returned unexpected HTTP status",
+                        )
+                        if status == 401:
+                            category, message = (
+                                "authentication",
+                                "authentication failed",
+                            )
+                        elif status == 403 and _WAF_1010.search(
+                            body.decode("utf-8", errors="replace")
+                        ):
+                            category, message = (
+                                "upstream_access",
+                                "upstream access was blocked",
+                            )
+                        elif status == 403 and _REJECTED_API_KEY.search(
+                            body.decode("utf-8", errors="replace")
+                        ):
+                            category, message = (
+                                "authentication",
+                                "authentication failed",
+                            )
+                        elif status == 403:
+                            category, message = (
+                                "upstream_access",
+                                "access was forbidden without API-key "
+                                "rejection evidence",
+                            )
+                        elif status == 429:
+                            category, message = "rate_limit", "rate limit reached"
+                        elif 500 <= status <= 599:
+                            category, message = "upstream", "service unavailable"
                         raise self._error(category, message, body=body, **context)
                     payload = await response.read()
                     if not payload:
