@@ -22,7 +22,7 @@ _PROTOBUF_TYPES = {
     "application/protobuf",
     "application/vnd.google.protobuf",
 }
-_USER_AGENT = "ptv-line-status/0.2.3 (Home Assistant)"
+_USER_AGENT = "ptv-line-status/0.2.4 (Home Assistant)"
 _ACCEPT = "application/octet-stream, application/x-protobuf, application/protobuf"
 _WAF_1010 = re.compile(r"\berror\s+code\s*:\s*1010\b", re.IGNORECASE)
 _REJECTED_API_KEY = re.compile(
