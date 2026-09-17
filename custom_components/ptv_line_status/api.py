@@ -6,6 +6,8 @@ import asyncio
 import re
 from collections.abc import Mapping
 from contextlib import suppress
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote, quote_plus, urlsplit
 
 from aiohttp import ClientError, ClientSession
@@ -22,12 +24,36 @@ _PROTOBUF_TYPES = {
     "application/protobuf",
     "application/vnd.google.protobuf",
 }
-_USER_AGENT = "ptv-line-status/0.2.4 (Home Assistant)"
+_USER_AGENT = "ptv-line-status/0.2.5 (Home Assistant)"
 _ACCEPT = "application/octet-stream, application/x-protobuf, application/protobuf"
 _WAF_1010 = re.compile(r"\berror\s+code\s*:\s*1010\b", re.IGNORECASE)
 _REJECTED_API_KEY = re.compile(
     r"\b(?:invalid|rejected)\s+(?:api[ _-]?key|keyid)\b", re.IGNORECASE
 )
+
+
+def _retry_after(value: str | None) -> float | None:
+    """Decode delta-seconds or an HTTP-date without retaining server text."""
+    if not value:
+        return None
+    try:
+        if value.strip().isascii() and value.strip().isdigit():
+            seconds = float(value.strip())
+        else:
+            date = parsedate_to_datetime(value)
+            if date.tzinfo is None:
+                return None
+            seconds = (date - datetime.now(UTC)).total_seconds()
+        # Reject values outside Python's representable datetime range.
+        if (
+            0
+            <= seconds
+            < (datetime.max.replace(tzinfo=UTC) - datetime.now(UTC)).total_seconds()
+        ):
+            return seconds
+    except (ValueError, TypeError, OverflowError):
+        pass
+    return None
 
 
 def _sanitize(value: str, api_key: str, limit: int = 200) -> str:
@@ -53,10 +79,12 @@ class PtvApiError(Exception):
         *,
         category: str = "connection",
         status: int | None = None,
+        retry_after: float | None = None,
     ) -> None:
         super().__init__(message)
         self.category = category
         self.status = status
+        self.retry_after = retry_after
 
 
 class PtvAuthenticationError(PtvApiError):
@@ -131,6 +159,7 @@ class PtvApiClient:
             f"Transport Victoria {message} ({'; '.join(details)})",
             category=category,
             status=status,
+            retry_after=_retry_after(headers.get("Retry-After") if headers else None),
         )
 
     async def async_get_service_alerts(self) -> gtfs_realtime_pb2.FeedMessage:

@@ -29,6 +29,7 @@ from .const import (
     CONF_STOP_ID,
     DOMAIN,
 )
+from .coordinator import RETRY_STATE_KEY
 from .gtfs_client import async_get_gtfs_catalog
 from .static_gtfs import GtfsCatalog, RouteChoice, StaticGtfsError, StationChoice
 
@@ -59,6 +60,31 @@ class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     _station: StationChoice
     _route: RouteChoice
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Validate a manually supplied key before replacing stored credentials."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            api_key = user_input[CONF_API_KEY]
+            try:
+                await self._async_validate_api_key(api_key)
+            except PtvAuthenticationError:
+                errors["base"] = "invalid_auth"
+            except PtvApiError:
+                errors["base"] = "cannot_connect"
+            else:
+                entry = self._get_reconfigure_entry()
+                self.hass.data.get(RETRY_STATE_KEY, {}).pop(entry.entry_id, None)
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_API_KEY: api_key}
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema({vol.Required(CONF_API_KEY): str}),
+            errors=errors,
+        )
+
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
         return await self.async_step_reauth_confirm()
 
@@ -78,6 +104,7 @@ class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 entry = self._get_reauth_entry()
                 await self.async_set_unique_id(entry.unique_id)
                 self._abort_if_unique_id_mismatch()
+                self.hass.data.get(RETRY_STATE_KEY, {}).pop(entry.entry_id, None)
                 return self.async_update_reload_and_abort(
                     entry, data_updates={CONF_API_KEY: api_key}
                 )
@@ -237,5 +264,5 @@ class PtvConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             await client.async_get_service_alerts()
         except PtvApiError as err:
-            _LOGGER.debug("Service Alerts validation failed: %s", err)
+            _LOGGER.debug("Service Alerts validation failed (HTTP %s)", err.status)
             raise

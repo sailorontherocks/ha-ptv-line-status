@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from aiohttp import ClientConnectionError
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -82,7 +81,7 @@ async def test_http_evidence(status, category):
     session.get.assert_called_once()
     assert session.get.call_args.kwargs["allow_redirects"] is False
     headers = session.get.call_args.kwargs["headers"]
-    assert headers["User-Agent"] == "ptv-line-status/0.2.4 (Home Assistant)"
+    assert headers["User-Agent"] == "ptv-line-status/0.2.5 (Home Assistant)"
     assert headers["Accept"] == (
         "application/octet-stream, application/x-protobuf, application/protobuf"
     )
@@ -101,7 +100,7 @@ async def test_waf_1010_is_retryable_upstream_access_error(hass):
         data={"stop_id": "stop", "route_id": "route", "direction_id": 1},
     )
     coordinator = PtvDataUpdateCoordinator(hass, entry, client)
-    with pytest.raises(UpdateFailed, match="upstream access was blocked"):
+    with pytest.raises(UpdateFailed, match="upstream_access"):
         await coordinator._async_update_data()
 
     with patch(
@@ -170,12 +169,11 @@ async def test_coordinator_mapping(hass, status):
         },
     )
     coordinator = PtvDataUpdateCoordinator(hass, entry, client)
-    expected = ConfigEntryAuthFailed if status in (401, 403) else UpdateFailed
-    with pytest.raises(expected, match=f"HTTP {status}"):
+    with pytest.raises(UpdateFailed, match=f"HTTP {status}"):
         await coordinator._async_update_data()
 
 
-async def test_recovery_and_log_suppression(hass, caplog):
+async def test_recovery_and_log_suppression(hass, caplog, freezer):
     client, session = client_response(503, SECRET.encode(), "text/plain")
     entry = MockConfigEntry(
         domain="ptv_line_status",
@@ -188,12 +186,14 @@ async def test_recovery_and_log_suppression(hass, caplog):
     coordinator = PtvDataUpdateCoordinator(hass, entry, client)
     caplog.set_level(logging.DEBUG)
     await coordinator.async_refresh()
+    freezer.tick(61)
     await coordinator.async_refresh()
     assert not coordinator.last_update_success
     errors = [record for record in caplog.records if record.levelno >= logging.ERROR]
     assert len(errors) == 1
     _, recovered_session = client_response()
     session.get.return_value = recovered_session.get.return_value
+    freezer.tick(121)
     await coordinator.async_refresh()
     assert coordinator.last_update_success
     assert "Fetching ptv_line_status data recovered" in caplog.text

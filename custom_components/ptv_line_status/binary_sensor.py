@@ -45,6 +45,22 @@ class PtvServiceIssueBinarySensor(
         self._attr_name = f"{station_name} → {direction_name} Service issue"
 
     @property
+    def available(self) -> bool:
+        """Keep the issue indicator available during an API outage."""
+        return True
+
+    @property
     def is_on(self) -> bool:
         """Return whether the coordinator reports a non-normal status."""
+        if not self.coordinator.last_update_success or self.coordinator.data is None:
+            return True
         return self.coordinator.data.status is not ServiceStatus.NORMAL
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        """Explain an issue caused by missing current data."""
+        return {
+            **self.coordinator.diagnostic_attributes,
+            "data_available": self.coordinator.last_update_success
+            and self.coordinator.data is not None,
+        }

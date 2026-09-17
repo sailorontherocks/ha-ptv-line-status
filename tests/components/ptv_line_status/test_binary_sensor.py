@@ -85,7 +85,7 @@ def test_service_status_maps_to_issue_state(hass, effect, expected: bool) -> Non
     assert entity.is_on is expected
 
 
-def test_coordinator_failure_makes_binary_sensor_unavailable(hass) -> None:
+def test_coordinator_failure_turns_binary_sensor_on(hass) -> None:
     entry = make_entry(
         entry_id="entry-one", station="North Williamstown", direction="City"
     )
@@ -95,7 +95,8 @@ def test_coordinator_failure_makes_binary_sensor_unavailable(hass) -> None:
 
     coordinator.async_set_update_error(RuntimeError("offline"))
 
-    assert entity.available is False
+    assert entity.available is True
+    assert entity.is_on is True
 
 
 def test_multiple_entries_have_independent_binary_sensors(hass) -> None:

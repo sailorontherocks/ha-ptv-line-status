@@ -25,7 +25,7 @@ from .const import (
     STATION_NAME,
     STOP_ID,
 )
-from .coordinator import PtvDataUpdateCoordinator
+from .coordinator import RETRY_STATE_KEY, PtvDataUpdateCoordinator
 
 
 @dataclass
@@ -50,7 +50,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: PtvConfigEntry) -> bool:
 
 async def async_unload_entry(hass: HomeAssistant, entry: PtvConfigEntry) -> bool:
     """Unload a PTV config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
+    # The coordinator also registers shutdown with the config entry. Calling it
+    # here explicitly makes timer cancellation part of successful unload.
+    await entry.runtime_data.coordinator.async_shutdown()
+    hass.data.get(RETRY_STATE_KEY, {}).pop(entry.entry_id, None)
+    return True
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: PtvConfigEntry) -> None:
+    """Discard retry state even if an entry was removed during setup retry."""
+    hass.data.get(RETRY_STATE_KEY, {}).pop(entry.entry_id, None)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: PtvConfigEntry) -> bool:

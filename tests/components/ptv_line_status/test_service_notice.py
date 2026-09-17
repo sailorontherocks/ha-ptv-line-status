@@ -76,7 +76,7 @@ def test_active_priority_over_planned(hass, effects, message):
     assert notice.native_value == message
     coordinator.async_set_update_error(RuntimeError("sensitive upstream detail"))
     assert notice.available
-    assert notice.native_value == "Service data unavailable"
+    assert notice.native_value == "API unavailable"
     assert notice.extra_state_attributes["planned_alerts"] == []
     coordinator.async_set_updated_data(
         evaluate_service_alerts(feed, 2000, ROUTE_ID, STOP_ID, DIRECTION_ID)

@@ -32,7 +32,7 @@ async def test_coordinator_network_failure(
     client.async_get_service_alerts.side_effect = PtvConnectionError("offline")
     coordinator = PtvDataUpdateCoordinator(hass, mock_config_entry, client)
 
-    with pytest.raises(UpdateFailed, match="offline"):
+    with pytest.raises(UpdateFailed, match="API unavailable"):
         await coordinator._async_update_data()
 
 

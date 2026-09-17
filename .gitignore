@@ -4,3 +4,4 @@ __pycache__/
 alerts.pb
 .env
 .env.*
+api-key.txt

@@ -57,13 +57,18 @@ class PtvServiceStatusSensor(CoordinatorEntity[PtvDataUpdateCoordinator], Sensor
     @property
     def native_value(self) -> str:
         """Return the machine-friendly service state."""
+        if not self.coordinator.last_update_success or self.coordinator.data is None:
+            return ServiceStatus.UNKNOWN.value
         return self.coordinator.data.status.value
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return compact operational context."""
         data = self.coordinator.data
+        if not self.coordinator.last_update_success or data is None:
+            return {**self.coordinator.diagnostic_attributes, "data_available": False}
         return {
+            **self.coordinator.diagnostic_attributes,
             "station": self._station_name,
             "direction": self._direction_name,
             "route": self._route_name,
@@ -106,7 +111,7 @@ class PtvServiceNoticeSensor(CoordinatorEntity[PtvDataUpdateCoordinator], Sensor
     def native_value(self) -> str:
         """Select the highest-priority current notice."""
         if not self.coordinator.last_update_success or self.coordinator.data is None:
-            return "Service data unavailable"
+            return self.coordinator.failure_message
         data = self.coordinator.data
         if data.status is not ServiceStatus.NORMAL:
             return {
@@ -123,9 +128,14 @@ class PtvServiceNoticeSensor(CoordinatorEntity[PtvDataUpdateCoordinator], Sensor
     def extra_state_attributes(self) -> dict[str, Any]:
         """Expose bounded future notices only while data is current."""
         if not self.coordinator.last_update_success or self.coordinator.data is None:
-            return {"planned_alerts": [], "data_available": False}
+            return {
+                **self.coordinator.diagnostic_attributes,
+                "planned_alerts": [],
+                "data_available": False,
+            }
         data = self.coordinator.data
         return {
+            **self.coordinator.diagnostic_attributes,
             "data_available": True,
             "planned_alert_count": data.planned_alert_count,
             "planned_alerts_truncated": data.planned_alert_count

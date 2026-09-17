@@ -33,6 +33,13 @@
           "direction": "Direction"
         }
       },
+      "reconfigure": {
+        "title": "Change Open Data API key",
+        "description": "Enter a replacement Transport Victoria API key. The stored key is updated only after validation succeeds.",
+        "data": {
+          "api_key": "Replacement Open Data API key"
+        }
+      },
       "reauth_confirm": {
         "title": "Reauthenticate PTV Line Status",
         "description": "Transport Victoria returned an authentication failure. Check your Open Data API key, or retry later if the service is experiencing an outage.",
@@ -54,7 +61,8 @@
     },
     "abort": {
       "already_configured": "This station, line, and direction is already configured",
-      "reauth_successful": "Reauthentication was successful"
+      "reauth_successful": "Reauthentication was successful",
+      "reconfigure_successful": "The API key was updated successfully"
     }
   }
 }

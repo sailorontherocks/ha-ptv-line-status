@@ -8,19 +8,20 @@ Project/repository: `ha-ptv-line-status`
 
 Home Assistant integration: **PTV Line Status** (`ptv_line_status`)
 
-Version 0.2.3 creates three Home Assistant entities for each configured Metro train
+Version 0.2.5 creates three Home Assistant entities for each configured Metro train
 station, line, and direction. Multiple entries can be added, such as
 **North Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
 
 - **Service status** is an enum sensor whose state is `normal`, `delayed`,
   `disrupted`, `suspended`, or `unknown`.
 - **Service issue** is a problem binary sensor. It is off for `normal` and on
-  for `delayed`, `disrupted`, `suspended`, or `unknown`.
+  for `delayed`, `disrupted`, `suspended`, or `unknown`, and during API failures.
 - **Service notice** displays a concise message: data unavailable, active
   suspension/disruption/delay (or unknown status), planned disruption, or normal
   service. Active alerts override planned notices. On refresh failure this notice
-  remains available to explain the failure while the other entities become
-  unavailable. Initial setup must still complete its first successful refresh.
+  remains available to explain the failure, Service issue stays available and on,
+  and Service status becomes unavailable. Initial setup must still complete its
+  first successful refresh before entities are created.
 
 All three entities use the same coordinator data and therefore share one realtime
 feed request and polling schedule per configured service.
@@ -88,9 +89,36 @@ is a practical balance for a realtime alert feed and amounts to at most about
 is not encoded here; the interval can be revisited if published feed guidance
 or rate-limit headers establish a better value.
 
-Authentication failures trigger Home Assistant's authentication-failure path.
-Network, HTTP, and malformed protobuf failures mark coordinator data unavailable
-and retain Home Assistant's normal retry behavior.
+All runtime failures, including HTTP 401/403 authentication rejection, retain
+the configured API key and retry automatically. Consecutive failures wait 60,
+120, 240, 480, then 900 seconds; further failures stay at 900 seconds. A valid
+`Retry-After` value (seconds or HTTP-date) extends the wait if longer. Success
+resets the backoff and resumes normal 60-second polling. Manual entity refreshes
+respect the same deadline, and requests within an entry are serialized. Timer
+rounding can delay a retry by approximately one second. Unloading the entry
+cancels its scheduled polling.
+
+If the first fetch during startup fails, Home Assistant marks the existing entry
+as not ready and retries setup automatically with its stored key. Home Assistant
+controls setup retry scheduling, so the actual fetch can happen later than the
+runtime deadline. The integration retains the deadline across setup attempts in
+the same process, including `Retry-After`; earlier setup attempts do not contact
+the API. A full Home Assistant restart resets the in-memory backoff. Entities
+remain unavailable until the first successful setup fetch.
+
+To change a key manually, go to **Settings → Devices & services → PTV Line Status**,
+open the configured entry's three-dot menu, and select **Reconfigure**. The new
+key is validated before it replaces the stored value; failed validation leaves
+the key and journey mapping unchanged. Initial setup validation and the existing
+reauthentication form are still supported.
+
+For an entry already stuck requesting reauthentication from an older version,
+install these updated integration files and restart Home Assistant, or reload
+the entry after the updated code is loaded. Setup retries use the existing key;
+there is no need to remove/recreate the entry or re-enter the key. A successful
+fetch dismisses any remaining reauthentication flow for that entry through Home
+Assistant's flow API. If the server keeps rejecting the key, automatic retries
+continue; use **Reconfigure** if you have a replacement key.
 
 ## Troubleshooting
 
@@ -102,23 +130,27 @@ logger:
     custom_components.ptv_line_status: debug
 ```
 
-Debug logs must never contain the API key. Failures include the feed and fixed
-endpoint host/path, HTTP status/reason and content type when available. Only
-allowlisted correlation/request IDs and rate-limit `Retry-After` values are
-included. Text/JSON/XML HTTP error excerpts are sanitised, normalised and limited
-to 200 characters; request headers and raw transport exceptions are not logged.
-Review logs before sharing them, since upstream error text can contain other
-server-provided information.
+Debug logs must never contain the API key. Runtime failure logs include a fixed
+message, feed name, failure category and HTTP status when available. Config-flow
+debug logs report HTTP status only. The API client still classifies authentication
+and gateway failures separately and sanitises its bounded error details, but the
+coordinator does not log response bodies or arbitrary exception text. Request
+headers and raw transport exceptions are never logged.
 
-HTTP 401/403 triggers reauthentication, but does not prove the key has expired:
-a gateway or authentication-service outage can produce the same response. Retry
-the unchanged key once the upstream service recovers. HTTP 429, 5xx, timeout and
-connection failures remain temporary update failures. Empty responses, unexpected
-content types and invalid protobuf are data failures. The normal 60-second polling
-interval is unchanged; `Retry-After` is reported for diagnosis, not used to alter it.
+HTTP 401 and explicit invalid-key HTTP 403 responses display **API authentication
+error** while continuing retries. Gateway/WAF 403 responses (including error code
+1010), HTTP 5xx and connection/timeout failures display **API unavailable**.
+HTTP 429 displays **API rate limited**. Empty responses, unexpected content types
+and invalid protobuf display **API returned invalid data**. None of these runtime
+errors automatically starts reauthentication or replaces your key.
+During failure, stale service status and planned-alert details are not presented
+as current. Service notice and Service issue expose safe diagnostic attributes:
+`last_successful_update`, `next_retry_time`, `consecutive_failure_count`,
+`last_failure_category`, `last_http_status`, and `feed_name`. The failure fields
+reset on recovery. Active/planned alert priorities resume after a successful fetch.
 Home Assistant's coordinator logs unavailability and recovery without repeating
 the same error on every poll. Config-flow screens show concise translated errors,
-not server response text; safe validation details are available at debug level.
+not server response text; validation HTTP status is available at debug level.
 
 ## Known limitations
 
