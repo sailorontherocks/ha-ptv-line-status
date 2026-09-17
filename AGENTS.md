@@ -109,3 +109,34 @@ When uncertain about Home Assistant APIs or conventions, consult current Home As
 Do not remove working functionality merely to simplify implementation.
 
 Do not make unrelated refactors while implementing a feature.
+
+## Security and release rules
+
+### Security
+
+- Never read Home Assistant `.storage` files or any credential file unless the user explicitly authorises one exact file for one stated diagnostic purpose.
+- `api-key.txt` is local and ignored. Never display, log, copy, stage, commit, or include its contents in command arguments, URLs, test fixtures, or output files.
+- Never expose `KeyID` request headers or raw exceptions that may contain credentials.
+- Use credentials only for the explicitly approved read-only PTV diagnostic request.
+- Gitignore is not a security boundary: ignored credential files still require explicit task authorisation before reading.
+- Never stage credentials, `api-key.txt`, Home Assistant storage, or diagnostic output containing secrets; never commit them or expose secrets in output, command arguments, URLs, or exceptions.
+
+### Git and releases
+
+- Never commit, push, tag, create a GitHub release, delete or move a tag, or force-push without the user's explicit approval for that action.
+- An explicit request such as “release this patch locally and on GitHub” authorises the complete normal workflow: version bump, validation, commit, annotated tag, push, and stable GitHub release. Do not ask separately for approval of steps already authorised. Implementation-only requests do not authorise publication.
+- Stop for conflicting tags, divergent branches, failed required checks, suspected staged secrets, or ambiguous release scope. Never force-push or move/delete published tags.
+- Before a release, verify the working tree, manifest version, tag target, remote state, and that no credentials are staged.
+- Use patch releases for backward-compatible fixes.
+- Release tags must be annotated and match the manifest version, for example manifest `0.2.4` ↔ tag `v0.2.4`.
+- Never overwrite an existing tag automatically; stop and ask.
+- GitHub releases must be stable, non-draft, and non-prerelease.
+
+For release preparation, publication, or resuming an interrupted release, follow
+[the repository release skill](.agents/skills/release-ptv-line-status/SKILL.md).
+
+### HACS
+
+- Maintain a root `hacs.json`.
+- Verify every release archive contains `hacs.json` and `custom_components/ptv_line_status/manifest.json`.
+- Do not move an existing release tag to repair packaging; issue a new patch release.
