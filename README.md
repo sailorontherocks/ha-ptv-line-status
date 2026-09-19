@@ -8,9 +8,16 @@ Project/repository: `ha-ptv-line-status`
 
 Home Assistant integration: **PTV Line Status** (`ptv_line_status`)
 
-Version 0.2.5 creates three Home Assistant entities for each configured Metro train
-station, line, and direction. Multiple entries can be added, such as
-**North Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
+PTV Line Status provides concise Metro train service information for Home
+Assistant. It was originally created to supply service text and an issue
+indicator to ESPControl displays, but ESPControl is optional: the same entities
+work in ordinary Home Assistant dashboards and automations.
+
+Version 0.2.5 creates three entities for each configured Metro train station,
+line, and direction. Multiple entries can be added, such as **North
+Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
+
+## What it provides
 
 - **Service status** is an enum sensor whose state is `normal`, `delayed`,
   `disrupted`, `suspended`, or `unknown`.
@@ -22,6 +29,10 @@ station, line, and direction. Multiple entries can be added, such as
   remains available to explain the failure, Service issue stays available and on,
   and Service status becomes unavailable. Initial setup must still complete its
   first successful refresh before entities are created.
+
+For ESPControl tiles, use **Service notice** for the concise text and **Service
+issue** for a warning or highlight. The status sensor remains useful when you
+need the machine-friendly state in an automation or dashboard condition.
 
 All three entities use the same coordinator data and therefore share one realtime
 feed request and polling schedule per configured service.
@@ -39,7 +50,29 @@ feed and uses explicit GTFS alert effects to classify service. Informational
 alerts (including construction alerts that do not explicitly affect train
 operation) are exposed only as a count and do not change the sensor state.
 
-## Installation and development
+## Installation
+
+### HACS (preferred)
+
+This repository may not appear in HACS's default catalogue, so add it as a custom
+repository first:
+
+1. In Home Assistant, open **HACS** → three-dot menu → **Custom repositories**.
+2. Add `https://github.com/sailorontherocks/ha-ptv-line-status` with type
+   **Integration**.
+3. Find **PTV Line Status** in HACS and download it.
+4. Restart Home Assistant.
+5. Go to **Settings → Devices & services → Add integration**, then select
+   **PTV Line Status**.
+
+Future published releases can be installed through HACS; restart Home Assistant
+after each update.
+
+If you already installed this integration manually, back up your existing
+`custom_components/ptv_line_status` folder before letting HACS manage that same
+folder. Do not remove existing Home Assistant configuration entries.
+
+### Manual installation and development
 
 Copy `custom_components/ptv_line_status` into the `custom_components` directory
 of a Home Assistant configuration, then restart Home Assistant. For development,
@@ -50,13 +83,28 @@ mocked by the tests; no development API key is required.
 The runtime dependency `gtfs-realtime-bindings==2.2.0` is declared in
 `manifest.json` and Home Assistant installs it when loading the integration.
 
+## Obtain an API key
+
+PTV Line Status consumes Transport Victoria **GTFS-Realtime** data. Create an
+account or sign in at the [Transport Victoria Open Data
+Portal](https://opendata.transport.vic.gov.au/). After signing in, open **My
+Account → Profile → API tokens**. Locate the **API Key** under **Subscription
+Keys** (portal labels may vary). Do not use the separate **Create API Token**
+option under **Data Platform API Tokens**, or the older PTV Timetable API
+developer-ID/key pair. Enter the Open Data Portal API key only in the PTV Line
+Status configuration flow in Home Assistant. Never put the key in GitHub, YAML
+examples, ESPControl configuration, or screenshots.
+
+The portal's [Help and Support](https://opendata.transport.vic.gov.au/Help-And-Support)
+page links to its current registration, login, and API-key guides. Account
+registration includes confirmation and multi-factor authentication steps.
+
 ## Configuration
 
-In Home Assistant, go to **Settings → Devices & services → Add integration**,
-select **PTV Line Status**, enter a Transport Victoria Open Data API key,
-then choose a Metro station and direction. A line-selection step appears when a
-station is served by multiple lines. Direction labels come from published GTFS
-trip destinations rather than the numeric GTFS `direction_id`.
+After installing, enter the Open Data Portal API key, then choose a Metro station
+and direction. A line-selection step appears when a station is served by multiple
+lines. Direction labels come from published GTFS trip destinations rather than
+the numeric GTFS `direction_id`.
 
 The API key is validated against the Service Alerts endpoint. The static Metro
 GTFS Schedule is downloaded during configuration and cached in memory for reuse
@@ -158,8 +206,8 @@ not server response text; validation HTTP status is available at debug level.
   excluded.
 - Static GTFS is cached only for the current Home Assistant process. The first
   new configuration after a restart downloads the current weekly schedule.
-- There is no departure-time data, nearby-stop support, dashboard, automation,
-  or HACS packaging.
+- There is no departure-time data, nearby-stop support, dashboard, or automation
+  configuration generated by the integration.
 - Classification is deliberately conservative and based on explicit GTFS-RT
   effects, not keywords in alert titles or descriptions.
 - Operational alert attributes contain compact summaries rather than complete
