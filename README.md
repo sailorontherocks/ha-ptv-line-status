@@ -228,7 +228,7 @@ branding or trademarked material.
 
 ## Development
 
-This integration was created and continues to be developed with AI assistance.
+This integration was created with and continues to be developed with AI assistance.
 
 Changes are checked with automated tests before release. Bugs and limitations may remain; issue reports are welcome.
 
