@@ -226,6 +226,12 @@ logo. Its provenance should be confirmed before public release; replace it with
 an original, non-official visual if it incorporates either organisation's
 branding or trademarked material.
 
+## Development
+
+This integration was created and continues to be developed with AI assistance.
+
+Changes are checked with automated tests before release. Bugs and limitations may remain; issue reports are welcome.
+
 ## Licence
 
 This project is licensed under the MIT License. See LICENSE.
