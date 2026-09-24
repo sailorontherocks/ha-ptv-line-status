@@ -1,7 +1,14 @@
 .venv/
 __pycache__/
 *.py[cod]
-alerts.pb
 .env
 .env.*
+*.env
 api-key.txt
+*.key
+*.pem
+*.p12
+*.pfx
+.storage/
+*.log
+*.pb

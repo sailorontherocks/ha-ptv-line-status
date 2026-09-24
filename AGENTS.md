@@ -86,6 +86,36 @@ Never commit:
 
 Use ignored local configuration or environment variables for development secrets.
 
+## Public repository and release hygiene
+
+Before committing or preparing a release, inspect tracked files and the diff for
+accidental sensitive or development-only material. Check for API keys, tokens,
+passwords, cookies, credentials, private keys, certificates, authentication
+headers, `.env` and other local configuration files, Home Assistant `.storage`
+contents, captured API/protobuf responses, logs, debug dumps, screenshots, and
+fixtures. Also check for private URLs, internal hostnames/IPs, SSH details, local
+paths, usernames, machine-specific information, and personal addresses, email,
+phone, precise location, travel, or routine data. Do not claim a privacy or
+security scan was performed unless it was actually performed.
+
+Never read, print, copy, commit, or expose `api-key.txt`, `.env*`, Home
+Assistant `.storage`, or any other credential store. Documentation must use
+generic/example journeys and stations: do not use North Williamstown,
+Williamstown, Newport, or similar maintainer-relevant locations unless genuinely
+necessary. Realistic station names remain acceptable in technically useful tests.
+
+`logo.png` is the approved original source artwork. The generated/resized
+derivatives are `custom_components/ptv_line_status/brand/icon.png` and
+`custom_components/ptv_line_status/brand/icon@2x.png`. Agents may resize or
+optimise `logo.png` as needed, but must not redesign it to incorporate or
+imitate PTV, Home Assistant, Victorian Government, Nabu Casa, or other
+third-party logos. Do not use, imitate, blend, transform, or derive from
+third-party logos, names, or marks without a clear right to do so;
+AI-generated artwork prompted that way is still third-party-derived. Prefer
+visually independent branding and do not imply affiliation, endorsement, or
+official status. Replacement branding must be independently designed/original
+or have clearly documented permission.
+
 ## Git
 
 Use small focused commits.

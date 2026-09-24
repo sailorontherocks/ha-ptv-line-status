@@ -14,8 +14,8 @@ indicator to ESPControl displays, but ESPControl is optional: the same entities
 work in ordinary Home Assistant dashboards and automations.
 
 Version 0.2.5 creates three entities for each configured Metro train station,
-line, and direction. Multiple entries can be added, such as **North
-Williamstown → City**, **Newport → Williamstown**, and **Newport → City**.
+line, and direction. Multiple entries can be added, such as **Flinders Street →
+Frankston**, **Richmond → City**, and **Footscray → Werribee**.
 
 ## What it provides
 
@@ -220,11 +220,6 @@ Attribution 4.0 International Licence.
 
 This project is not affiliated with, endorsed by, or sponsored by Public
 Transport Victoria or Home Assistant.
-
-The project logo is not an official Public Transport Victoria or Home Assistant
-logo. Its provenance should be confirmed before public release; replace it with
-an original, non-official visual if it incorporates either organisation's
-branding or trademarked material.
 
 ## Licence
 
