@@ -221,6 +221,12 @@ Attribution 4.0 International Licence.
 This project is not affiliated with, endorsed by, or sponsored by Public
 Transport Victoria or Home Assistant.
 
+## Development
+
+This integration was created with and continues to be developed with AI assistance.
+
+Changes are checked with automated tests before release. Bugs and limitations may remain; issue reports are welcome.
+
 ## Licence
 
 This project is licensed under the MIT License. See LICENSE.
