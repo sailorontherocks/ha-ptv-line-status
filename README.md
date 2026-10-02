@@ -13,7 +13,7 @@ Assistant. It was originally created to supply service text and an issue
 indicator to ESPControl displays, but ESPControl is optional: the same entities
 work in ordinary Home Assistant dashboards and automations.
 
-Version 0.2.5 creates three entities for each configured Metro train station,
+Version 0.2.6 creates three entities for each configured Metro train station,
 line, and direction. Multiple entries can be added, such as **Flinders Street →
 Frankston**, **Richmond → City**, and **Footscray → Werribee**.
 
